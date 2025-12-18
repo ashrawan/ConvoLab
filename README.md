@@ -8,7 +8,11 @@ ConvoLab is a multimodal AI platform designed to enable two-way communication be
 
 ## Demo
 
-![ConvoLab Demo](https://placehold.co/600x400?text=App+Video+Placeholder)
+<div align="center">
+  <video src="./docs/demo-video01.mov" width="100%" controls>
+    Your browser does not support the video tag.
+  </video>
+</div>
 
 ## Application Overview
 

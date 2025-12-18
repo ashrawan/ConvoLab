@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LangQualia",
+  title: "ConvoLab",
   description: "Enabling conscious entities to have language-based verbal communication",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

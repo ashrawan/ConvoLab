@@ -92,11 +92,16 @@ export function TTSSettings({
         <div className={`relative ${className}`}>
             <div className="flex items-center gap-2">
                 {/* API Status Indicator */}
-                <div
-                    className={`w-2 h-2 rounded-full cursor-help transition-all duration-300 ${getHealthColor()}`}
-                    title={health.message || (health.status === 'healthy' ? 'API Connected' : 'Checking API status...')}
-                    onClick={handleHealthClick}
-                />
+                <div className="relative group/status">
+                    <div
+                        className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer ${getHealthColor()}`}
+                        onClick={handleHealthClick}
+                    />
+                    {/* Instant Custom Tooltip */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-[#1a1a1c] border border-white/10 rounded-md text-[10px] text-white font-medium opacity-0 group-hover/status:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap shadow-xl">
+                        {health.status === 'healthy' ? 'Online' : (health.message || 'Checking API...')}
+                    </div>
+                </div>
 
                 {/* Settings Button */}
                 <button
@@ -127,7 +132,7 @@ export function TTSSettings({
                     <div className="absolute right-0 top-full mt-3 w-80 bg-[#1a1a1c]/95 border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 overflow-hidden backdrop-blur-2xl ring-1 ring-white/5 origin-top-right transition-all">
                         {/* Header */}
                         <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between bg-white/[0.03]">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">System Settings</span>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Settings</span>
                             <div className="flex gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-white/10" />
                                 <span className="w-1.5 h-1.5 rounded-full bg-white/10" />

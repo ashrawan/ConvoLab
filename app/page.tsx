@@ -152,9 +152,11 @@ export default function Home() {
     <main className="h-screen bg-[#0f0f10] text-white flex flex-col overflow-hidden font-sans selection:bg-purple-500/30">
       {/* Minimal Header */}
       <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-8 py-6 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
-          <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-          <h1 className="text-sm font-medium tracking-wide uppercase text-gray-400">Convo Lab</h1>
+        <div className="pointer-events-auto flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
+          <img src="/icon.svg" alt="ConvoLab Logo" className="w-6 h-6 rounded-md shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
+          <h1 className="text-base font-semibold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+            Convo Lab
+          </h1>
         </div>
 
         <div className="pointer-events-auto flex items-center gap-4">
