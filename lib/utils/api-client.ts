@@ -2,14 +2,18 @@
  * API Client for Backend Communication
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '../config/api';
 
 export const apiClient = {
     /**
      * GET request
      */
     get: async <T = any>(endpoint: string): Promise<T> => {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`);
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true'
+            }
+        });
         if (!response.ok) {
             throw new Error(`API error: ${response.statusText}`);
         }
@@ -22,7 +26,10 @@ export const apiClient = {
     post: async  <T = any>(endpoint: string, data: any): Promise<T> => {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
+            },
             body: JSON.stringify(data)
         });
         if (!response.ok) {
@@ -37,7 +44,10 @@ export const apiClient = {
     postStream: async (endpoint: string, data: any): Promise<Response> => {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true'
+            },
             body: JSON.stringify(data)
         });
         if (!response.ok) {

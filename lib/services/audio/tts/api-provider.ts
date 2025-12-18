@@ -6,7 +6,7 @@
 import { TTSProvider, TTSOptions } from '../types';
 import { getSpeechLang } from './utils';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '@/lib/config/api';
 
 export class APITTSProvider implements TTSProvider {
     name = 'api';
@@ -56,9 +56,12 @@ export class APITTSProvider implements TTSProvider {
 
         try {
             // Call backend TTS endpoint
-            const response = await fetch(`${API_BASE}/api/audio/tts`, {
+            const response = await fetch(`${API_BASE_URL}/api/audio/tts`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({
                     text,
                     lang: getSpeechLang(lang),

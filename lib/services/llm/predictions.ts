@@ -2,7 +2,7 @@
  * API functions for phrase predictions with language support
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '@/lib/config/api';
 
 export interface PhrasePrediction {
     phrase: string;
@@ -29,9 +29,13 @@ export async function getPhrasePredictions(
     if (!text || text.trim().length === 0) return [];
 
     try {
-        const url = `${API_BASE}/api/ai/predict/phrases?text=${encodeURIComponent(text)}&num_predictions=${numPredictions}&source_lang=${sourceLang}&return_lang=${returnLang}`;
+        const url = `${API_BASE_URL}/api/ai/predict/phrases?text=${encodeURIComponent(text)}&num_predictions=${numPredictions}&source_lang=${sourceLang}&return_lang=${returnLang}`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true'
+            }
+        });
         if (!response.ok) return [];
 
         const data: PhrasePredictionResponse = await response.json();

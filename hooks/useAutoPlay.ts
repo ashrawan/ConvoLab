@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import useSound from 'use-sound';
+import { getApiUrl } from '@/lib/config/api';
 
 export interface ConversationExchange {
     role: 'party_a' | 'party_b';
@@ -238,9 +239,12 @@ export function useAutoPlay({
                 partyB: partyBContextRef.current
             });
 
-            const response = await fetch('/api/ai/autoplay/generate', {
+            const response = await fetch(getApiUrl('/api/ai/autoplay/generate'), {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({
                     party_a_context: partyAContextRef.current,
                     party_b_context: partyBContextRef.current,

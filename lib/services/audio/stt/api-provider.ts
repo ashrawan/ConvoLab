@@ -6,7 +6,7 @@
 import { STTProvider, STTOptions } from '../types';
 import { getSpeechLang } from '../tts/utils';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '@/lib/config/api';
 
 export class APISTTProvider implements STTProvider {
     name = 'api';
@@ -105,8 +105,11 @@ export class APISTTProvider implements STTProvider {
             formData.append('audio', audioBlob);
             formData.append('language', this.currentLang);
 
-            const response = await fetch(`${API_BASE}/api/audio/stt`, {
+            const response = await fetch(`${API_BASE_URL}/api/audio/stt`, {
                 method: 'POST',
+                headers: {
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: formData
             });
 

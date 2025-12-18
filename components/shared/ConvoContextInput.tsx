@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { AudioVisualizer } from '@/components/shared/AudioVisualizer';
+import { getApiUrl } from '@/lib/config/api';
 
 // Inline SVGs to avoid dependency issues
 const SparklesIcon = ({ className }: { className?: string }) => (
@@ -147,7 +148,11 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
         setIsLoading(true);
         try {
             // Use dedicated endpoint for random scenarios to avoid roleplay bias
-            const response = await fetch('/api/ai/scenario/random');
+            const response = await fetch(getApiUrl('/api/ai/scenario/random'), {
+                headers: {
+                    'ngrok-skip-browser-warning': 'true'
+                }
+            });
 
             if (!response.ok) throw new Error('Failed to generate context');
 
@@ -176,10 +181,11 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
         setError(null);
 
         try {
-            const response = await fetch('/api/ai/context', {
+            const response = await fetch(getApiUrl('/api/ai/context'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
                 },
                 body: JSON.stringify({ text: input }),
             });
@@ -211,8 +217,11 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                     const formData = new FormData();
                     formData.append('audio', blob, 'recording.webm');
 
-                    const res = await fetch('/api/audio/stt', {
+                    const res = await fetch(getApiUrl('/api/audio/stt'), {
                         method: 'POST',
+                        headers: {
+                            'ngrok-skip-browser-warning': 'true'
+                        },
                         body: formData,
                     });
 

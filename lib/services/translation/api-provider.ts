@@ -4,8 +4,8 @@
  */
 
 import { TranslationProvider } from './types';
+import { API_BASE_URL } from '@/lib/config/api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export class APITranslationProvider implements TranslationProvider {
     name = 'api';
@@ -18,9 +18,12 @@ export class APITranslationProvider implements TranslationProvider {
         if (!text) return text;
 
         try {
-            const response = await fetch(`${API_BASE}/api/translate`, {
+            const response = await fetch(`${API_BASE_URL}/api/translate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({
                     text,
                     source_lang: sourceLang,
@@ -48,9 +51,12 @@ export class APITranslationProvider implements TranslationProvider {
         if (!text || targetLangs.length === 0) return {};
 
         try {
-            const response = await fetch(`${API_BASE}/api/ai/translate/multiple`, {
+            const response = await fetch(`${API_BASE_URL}/api/ai/translate/multiple`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'ngrok-skip-browser-warning': 'true'
+                },
                 body: JSON.stringify({
                     text,
                     source_lang: sourceLang,
