@@ -94,8 +94,8 @@ export default function AudioInput({
         <>
             {/* Listening indicator */}
             {isActive && (
-                <div className="absolute bottom-16 left-6 right-6 bg-violet-500/20 border border-violet-500/30 rounded-lg px-4 py-2 pointer-events-none z-10">
-                    <p className="text-violet-300 text-sm italic">{transcript || 'Listening...'}</p>
+                <div className="absolute bottom-16 left-6 right-6 bg-primary/20 border border-primary/30 rounded-lg px-4 py-2 pointer-events-none z-10">
+                    <p className="text-primary text-sm italic">{transcript || 'Listening...'}</p>
                 </div>
             )}
 
@@ -103,8 +103,8 @@ export default function AudioInput({
             <button
                 onClick={onToggle}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition ${isActive
-                        ? 'bg-red-500 text-white animate-pulse'
-                        : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+                    ? 'bg-destructive text-destructive-foreground animate-pulse'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
                     }`}
                 title={isActive ? 'Stop listening' : 'Voice input'}
             >

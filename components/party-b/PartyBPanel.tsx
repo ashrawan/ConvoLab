@@ -12,7 +12,7 @@ const renderHighlightedText = (text: string, activeIndex: number) => {
         if (part.length > 0 && !part.match(/\s/)) {
             const isActive = wordCount === activeIndex;
             wordCount++;
-            return <span key={i} className={isActive ? "bg-violet-500/50 text-white shadow-[0_0_10px_rgba(139,92,246,0.3)] rounded px-1 -mx-1 transition-all duration-150" : ""}>{part}</span>;
+            return <span key={i} className={isActive ? "bg-primary/50 text-white shadow-[0_0_10px_rgba(139,92,246,0.3)] rounded px-1 -mx-1 transition-all duration-150" : ""}>{part}</span>;
         }
         // Use whitespace-pre-wrap to allow wrapping while preserving sequence
         return <span key={i} className="whitespace-pre-wrap">{part}</span>;
@@ -126,7 +126,7 @@ export default function PartyBPanel({
     }, []);
 
     return (
-        <div ref={containerRef} className="w-1/2 flex flex-col bg-[#0a0a0b]">
+        <div ref={containerRef} className="w-1/2 flex flex-col bg-background/50">
             {/* Context Input */}
             <ContextInput
                 party="B"
@@ -141,7 +141,7 @@ export default function PartyBPanel({
             {/* Top Section - Response + Translations (Resizable) */}
             <div
                 ref={topSectionRef}
-                className={`border-b border-white/5 flex flex-col overflow-hidden ${isSparksCollapsed ? 'flex-1' : ''}`}
+                className={`border-b border-border flex flex-col overflow-hidden ${isSparksCollapsed ? 'flex-1' : ''}`}
                 style={isSparksCollapsed ? undefined : { height: topSectionHeight ?? '60%' }}
             >
                 {/* Response Area */}
@@ -149,26 +149,26 @@ export default function PartyBPanel({
                     {/* Speaking/Reading indicator - Top */}
                     {showActiveState && response && (
                         <div className="flex items-center gap-2 mb-2 opacity-80">
-                            <span className={`text-[10px] uppercase tracking-wider font-bold ${isReading ? 'text-emerald-400' : 'text-violet-400'}`}>
+                            <span className={`text-[10px] uppercase tracking-wider font-bold ${isReading ? 'text-blue-700 dark:text-blue-400' : 'text-violet-700 dark:text-violet-400'}`}>
                                 {isReading ? 'Reading...' : 'Speaking...'}
                             </span>
                             <span className="flex gap-0.5 items-end h-2.5">
-                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                <span className={`w-0.5 h-2.5 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                <span className={`w-0.5 h-2.5 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
                             </span>
                         </div>
                     )}
 
                     {/* Response Text */}
-                    <div className={`text-xl leading-relaxed whitespace-pre-wrap transition-colors duration-300 ${isPlayingMain ? 'text-violet-200' : 'text-emerald-300'}`}>
+                    <div className={`text-xl leading-relaxed whitespace-pre-wrap transition-colors duration-300 ${isPlayingMain ? 'text-violet-700 dark:text-violet-400' : 'text-blue-700 dark:text-blue-400'}`}>
                         {highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
                             renderHighlightedText(response, highlightedWordIndex)
                         ) : response ? (
                             <ReactMarkdown
                                 components={{
                                     p: ({ children }) => <span className="block mb-2 last:mb-0">{children}</span>,
-                                    strong: ({ children }) => <span className="font-bold text-emerald-200">{children}</span>,
+                                    strong: ({ children }) => <span className="font-bold text-blue-700 dark:text-blue-400">{children}</span>,
                                     em: ({ children }) => <span className="italic opacity-80">{children}</span>,
                                     // Handle lists if needed, though 'nice and simple' was requested
                                     ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
@@ -181,7 +181,7 @@ export default function PartyBPanel({
                             <span>{isGenerating ? 'Generating response...' : 'Output'}</span>
                         )}
                         {isGenerating && (
-                            <span className="inline-block w-2 h-6 ml-2 bg-emerald-400 animate-pulse" />
+                            <span className="inline-block w-2 h-6 ml-2 bg-blue-600 dark:bg-blue-400 animate-pulse" />
                         )}
                     </div>
 
@@ -197,8 +197,8 @@ export default function PartyBPanel({
                                     }
                                 }}
                                 className={`p-3 rounded-full transition-all shadow-lg ${showActiveState
-                                    ? 'bg-violet-500 text-white hover:bg-violet-600'
-                                    : 'bg-white/10 text-gray-400 hover:text-white hover:bg-white/20'
+                                    ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                                    : 'bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted'
                                     }`}
                                 title={showActiveState ? "Stop" : "Play response"}
                             >
@@ -219,10 +219,10 @@ export default function PartyBPanel({
                 {/* Translations Label + Resize Handle */}
                 <button
                     onClick={onToggleTranslations}
-                    className="w-full px-3 py-1 shrink-0 border-t border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
+                    className="w-full px-3 py-1 shrink-0 border-t border-border flex items-center justify-between hover:bg-accent transition-colors"
                 >
-                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Translations</span>
-                    <svg className={`w-3 h-3 text-gray-500 transition-transform ${isTranslationsCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Translations</span>
+                    <svg className={`w-3 h-3 text-muted-foreground transition-transform ${isTranslationsCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
@@ -256,10 +256,10 @@ export default function PartyBPanel({
             {/* Conversation Sparks Label + Resize Handle */}
             <button
                 onClick={onToggleSparks}
-                className="w-full px-4 py-2 border-t border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
+                className="w-full px-4 py-2 border-t border-border flex items-center justify-between hover:bg-accent transition-colors"
             >
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Conversation Sparks</h3>
-                <svg className={`w-3 h-3 text-gray-400 transition-transform ${isSparksCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Conversation Sparks</h3>
+                <svg className={`w-3 h-3 text-muted-foreground transition-transform ${isSparksCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
@@ -283,11 +283,11 @@ export default function PartyBPanel({
 
                         {/* Image Visualization */}
                         {images.length > 0 && (
-                            <div className="border-t border-white/10 p-4">
-                                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Visual Context</div>
+                            <div className="border-t border-border p-4">
+                                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Visual Context</div>
                                 <div className="flex gap-3">
                                     {images.map((img, idx) => (
-                                        <div key={idx} className="relative w-40 h-28 rounded-lg overflow-hidden border border-white/10">
+                                        <div key={idx} className="relative w-40 h-28 rounded-lg overflow-hidden border border-border">
                                             <img
                                                 src={img}
                                                 alt="Context visual"

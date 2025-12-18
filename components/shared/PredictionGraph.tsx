@@ -204,7 +204,7 @@ export default function PredictionGraph({
                                     r={d.r}
                                     fill={d.fill}
                                     opacity={0.85}
-                                    stroke="rgba(255,255,255,0.3)"
+                                    stroke="var(--border)"
                                     strokeWidth={2}
                                 />
                                 <text
@@ -236,10 +236,10 @@ export default function PredictionGraph({
 
                 {/* Loading overlay */}
                 {isLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm z-40 rounded-xl">
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-40 rounded-xl">
                         <div className="flex flex-col items-center gap-4">
-                            <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                            <span className="text-indigo-300 font-medium text-lg">
+                            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                            <span className="text-primary font-medium text-lg">
                                 AI is thinking...
                             </span>
                         </div>
@@ -248,8 +248,8 @@ export default function PredictionGraph({
 
                 {/* Empty state */}
                 {!currentWord && predictions.length === 0 && !isLoading && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 z-10">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 text-indigo-500/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground/50 z-10">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-4 text-primary/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                         </svg>
                         {/* <p className="text-xl font-medium mb-2">Start typing or speak</p>
@@ -259,8 +259,8 @@ export default function PredictionGraph({
 
                 {/* Predictions info */}
                 {predictions.length > 0 && !isLoading && (
-                    <div className="absolute bottom-4 right-4 px-4 py-2 bg-gray-800/80 backdrop-blur-sm rounded-lg border border-gray-700/50">
-                        <p className="text-xs text-gray-400">
+                    <div className="absolute bottom-4 right-4 px-4 py-2 bg-popover/80 backdrop-blur-sm rounded-lg border border-border">
+                        <p className="text-xs text-muted-foreground">
                             {predictions.length} prediction{predictions.length !== 1 ? 's' : ''} • Click to select
                         </p>
                     </div>

@@ -15,7 +15,7 @@ export default function PhraseSuggestions({
     if (isLoading) {
         return (
             <div className="flex-1 flex items-center justify-center">
-                <div className="text-sm text-gray-500">Loading suggestions...</div>
+                <div className="text-sm text-muted-foreground">Loading suggestions...</div>
             </div>
         );
     }
@@ -23,7 +23,7 @@ export default function PhraseSuggestions({
     if (predictions.length === 0) {
         return (
             <div className="flex-1 flex items-center justify-center">
-                <p className="text-gray-600 text-sm italic">Start typing to see phrase suggestions</p>
+                <p className="text-muted-foreground text-sm italic">Start typing to see phrase suggestions</p>
             </div>
         );
     }
@@ -43,12 +43,12 @@ export default function PhraseSuggestions({
                             }
                         });
                     }}
-                    className="px-4 py-3 rounded-lg bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/40 transition text-left"
+                    className="px-4 py-3 rounded-lg bg-card hover:bg-primary/20 border border-border hover:border-primary/40 transition text-left"
                 >
-                    <div className="text-xs md:text-sm text-gray-300 hover:text-violet-300 truncate">
+                    <div className="text-xs md:text-sm text-card-foreground hover:text-primary truncate">
                         {pred.phrase}
                     </div>
-                    <div className="text-[10px] md:text-xs text-gray-500 mt-1">
+                    <div className="text-[10px] md:text-xs text-muted-foreground mt-1">
                         {Math.round(pred.probability * 100)}% match
                     </div>
                 </button>

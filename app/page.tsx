@@ -183,14 +183,14 @@ export default function Home() {
   // Render
   // ============================================================================
   return (
-    <main className="h-screen bg-[#0f0f10] text-white flex flex-col overflow-y-auto lg:overflow-hidden font-sans selection:bg-purple-500/30">
+    <main className="h-screen bg-background text-foreground flex flex-col overflow-y-auto lg:overflow-hidden font-sans selection:bg-primary/30">
       {/* Minimal Header */}
       {/* Minimal Header */}
       {/* Unified Header & Context Input */}
-      <div className="sticky top-0 z-50 pt-4 pb-4 px-3 md:px-8 bg-[#0f0f10]/95 backdrop-blur-xl border-b border-white/5">
+      <div className="sticky top-0 z-50 pt-4 pb-4 px-3 md:px-8 bg-background/95 backdrop-blur-xl border-b border-border">
         <ConvoContextInput
           onContextSet={handleContextSet}
-          className="shadow-2xl shadow-purple-900/10"
+          className="shadow-2xl shadow-primary/10"
           isAutoPlaying={autoPlayMode.state.isRunning}
           isAutoPlayPaused={autoPlayMode.state.isPaused}
           onAutoPlayToggle={() => {
@@ -205,14 +205,14 @@ export default function Home() {
             <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
               {/* Desktop Logo */}
               <div className="hidden md:flex items-center gap-3">
-                <img src="/icon.svg" alt="ConvoLab Logo" className="w-6 h-6 rounded-md shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
-                <h1 className="text-base font-semibold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+                <img src="/icon.svg" alt="ConvoLab Logo" className="w-6 h-6 rounded-md shadow-[0_0_15px_rgba(139,92,246,0.4)]" />
+                <h1 className="text-base font-semibold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400">
                   Convo Lab
                 </h1>
               </div>
               {/* Mobile Logo */}
               <div className="md:hidden flex items-center">
-                <h1 className="text-sm font-bold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+                <h1 className="text-sm font-bold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-400">
                   CL
                 </h1>
               </div>
@@ -232,7 +232,7 @@ export default function Home() {
                 showTypingEffect={showTypingEffect}
                 onShowTypingEffectChange={setShowTypingEffect}
               />
-              <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer">
+              <div className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-muted/80 transition-colors cursor-pointer">
                 <span className="text-sm opacity-70">👤</span>
               </div>
             </div>

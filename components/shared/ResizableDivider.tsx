@@ -44,14 +44,14 @@ export function ResizableDivider({ onResize, className = '' }: ResizableDividerP
             onMouseDown={handleMouseDown}
             className={`
                 h-2 cursor-row-resize flex items-center justify-center 
-                hover:bg-white/10 transition-colors group
-                ${isDragging ? 'bg-violet-500/20' : ''}
+                hover:bg-muted transition-colors group
+                ${isDragging ? 'bg-primary/20' : ''}
                 ${className}
             `}
         >
             <div className={`
                 w-12 h-1 rounded-full transition-colors
-                ${isDragging ? 'bg-violet-400' : 'bg-white/20 group-hover:bg-white/40'}
+                ${isDragging ? 'bg-primary' : 'bg-muted-foreground/30 group-hover:bg-muted-foreground/50'}
             `} />
         </div>
     );

@@ -20,9 +20,9 @@ interface LanguageTranslationsProps {
 // Inline AudioWave component
 const AudioWave = () => (
     <span className="flex gap-0.5 items-end h-3 mx-1">
-        <span className="w-0.5 h-1.5 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
-        <span className="w-0.5 h-3 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
-        <span className="w-0.5 h-2 bg-violet-400 animate-[pulse_0.7s_infinite]"></span>
+        <span className="w-0.5 h-1.5 bg-primary animate-[pulse_0.6s_infinite]"></span>
+        <span className="w-0.5 h-3 bg-primary animate-[pulse_0.8s_infinite]"></span>
+        <span className="w-0.5 h-2 bg-primary animate-[pulse_0.7s_infinite]"></span>
     </span>
 );
 
@@ -65,14 +65,14 @@ export default function LanguageTranslations({
         : selectedLanguages;
 
     return (
-        <div className="border-t border-white/10 bg-[#0a0a0b] p-4">
+        <div className="border-t border-border bg-card p-2 md:p-3">
             {/* Header section - only show if we have content to display */}
             {(showLastMessage || !hideSelector || excludePrimary) && (
                 <div className="flex items-center justify-between mb-3">
                     {showLastMessage && inputText && (
                         <div className="flex flex-col gap-1">
-                            <span className="text-xs text-gray-500 uppercase tracking-wide">Last Message</span>
-                            <span className="text-sm text-gray-300 line-clamp-2">{inputText}</span>
+                            <span className="text-xs text-muted-foreground uppercase tracking-wide">Last Message</span>
+                            <span className="text-sm text-foreground line-clamp-2">{inputText}</span>
                         </div>
                     )}
                     {/* {excludePrimary && !showLastMessage && (
@@ -91,7 +91,7 @@ export default function LanguageTranslations({
             )}
 
             {languagesToShow.length > 0 ? (
-                <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                <div className="space-y-1 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                     {languagesToShow.map((lang, idx) => {
                         const isPrimary = lang === languages[0];
                         const text = isPrimary ? inputText : translations[lang];
@@ -100,20 +100,20 @@ export default function LanguageTranslations({
                         const isPlaying = currentlyPlayingKey === translationKey;
 
                         return (
-                            <div key={lang} className={`p-2 rounded-lg transition-all ${isPlaying
-                                ? 'bg-violet-500/10 border border-violet-500/20 flex flex-col gap-2'
-                                : 'hover:bg-white/5 border border-transparent flex items-center gap-3'
+                            <div key={lang} className={`py-1 px-2 rounded-lg transition-all ${isPlaying
+                                ? 'bg-primary/10 border border-primary/20 flex flex-col gap-1.5'
+                                : 'hover:bg-muted border border-transparent flex items-center gap-2'
                                 }`}>
 
                                 {/* Header Layout when playing (Badge + Status + Button) */}
-                                <div className={`flex items-center ${isPlaying ? 'justify-between w-full' : 'gap-3 shrink-0'}`}>
-                                    <div className={`flex items-center ${isPlaying ? 'gap-3' : ''}`}>
+                                <div className={`flex items-center ${isPlaying ? 'justify-between w-full' : 'gap-2 shrink-0'}`}>
+                                    <div className={`flex items-center ${isPlaying ? 'gap-2' : ''}`}>
                                         {/* Language Badge */}
-                                        <span className={`text-xs px-2 py-1 rounded font-mono min-w-[40px] text-center transition-all shrink-0 ${isPlaying
-                                            ? 'bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/50'
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono min-w-[32px] text-center transition-all shrink-0 ${isPlaying
+                                            ? 'bg-primary/20 text-primary ring-1 ring-primary/50'
                                             : (isPrimary && !excludePrimary)
-                                                ? 'bg-emerald-500/20 text-emerald-300'
-                                                : 'bg-white/10 text-gray-400'
+                                                ? 'bg-secondary/50 text-secondary-foreground border border-border'
+                                                : 'bg-muted text-muted-foreground'
                                             }`}>
                                             {lang.toUpperCase()}
                                         </span>
@@ -121,7 +121,7 @@ export default function LanguageTranslations({
                                         {/* Speaking Indicator & Wave (Only visible here when playing) */}
                                         {isPlaying && (
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs text-violet-400 font-medium uppercase tracking-wide shrink-0">Speaking...</span>
+                                                <span className="text-xs text-primary font-medium uppercase tracking-wide shrink-0">Speaking...</span>
                                                 <AudioWave />
                                             </div>
                                         )}
@@ -131,7 +131,7 @@ export default function LanguageTranslations({
                                     {isPlaying && text && (
                                         <button
                                             onClick={() => onStopAudio && onStopAudio()}
-                                            className="p-2 rounded-full bg-violet-500 text-white hover:bg-violet-600 shadow-md shrink-0 transition-all"
+                                            className="p-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shrink-0 transition-all"
                                             title="Stop"
                                         >
                                             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
@@ -142,13 +142,13 @@ export default function LanguageTranslations({
                                 </div>
 
                                 {/* Text Content */}
-                                <div className={`text-sm leading-relaxed transition-all min-w-0 ${isPlaying ? 'text-violet-200 pl-1' : 'flex-1 text-gray-300'}`}>
+                                <div className={`text-sm leading-relaxed transition-all min-w-0 ${isPlaying ? 'text-primary font-medium pl-1' : 'flex-1 text-foreground'}`}>
                                     {!isPrimary && isTranslating ? (
-                                        <span className="text-gray-500 italic">Translating...</span>
+                                        <span className="text-muted-foreground italic">Translating...</span>
                                     ) : text ? (
                                         <span className={`${isPlaying ? 'whitespace-pre-wrap block' : 'truncate block'}`}>{text}</span>
                                     ) : (
-                                        <span className="text-gray-600">—</span>
+                                        <span className="text-muted-foreground">—</span>
                                     )}
                                 </div>
 
@@ -156,7 +156,7 @@ export default function LanguageTranslations({
                                 {!isPlaying && text && (
                                     <button
                                         onClick={() => onPlayAudio(text, getSpeechLang(lang), translationKey)}
-                                        className="p-2 rounded-full text-gray-500 hover:text-white hover:bg-white/10 shrink-0 transition-all"
+                                        className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 transition-all"
                                         title={`Play in ${lang}`}
                                     >
                                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -169,7 +169,7 @@ export default function LanguageTranslations({
                     })}
                 </div>
             ) : (
-                <p className="text-xs text-gray-600 mt-2">Select languages</p>
+                <p className="text-xs text-muted-foreground mt-2">Select languages</p>
             )}
         </div>
     );

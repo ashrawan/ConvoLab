@@ -73,7 +73,7 @@ export default function LanguageSelector({
         <div className="relative inline-block" ref={menuRef}>
             <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition"
+                className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition"
                 title={label}
             >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -84,16 +84,16 @@ export default function LanguageSelector({
             </button>
 
             {showMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-[#1a1a1d] border border-white/10 rounded-xl shadow-xl z-30 py-2 min-w-[240px] flex flex-col">
-                    <div className="px-4 py-2 border-b border-white/10">
-                        <p className="text-xs text-gray-500 mb-2">{label}</p>
+                <div className="absolute right-0 top-full mt-1 bg-popover border border-border rounded-xl shadow-xl z-30 py-2 min-w-[240px] flex flex-col">
+                    <div className="px-4 py-2 border-b border-border">
+                        <p className="text-xs text-muted-foreground mb-2">{label}</p>
                         {/* Search Input */}
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search..."
-                            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-violet-500/50"
+                            className="w-full bg-muted/20 border border-border rounded px-2 py-1 text-sm text-foreground placeholder-muted-foreground/60 focus:outline-none focus:border-primary/50"
                             autoFocus
                         />
                     </div>
@@ -109,18 +109,18 @@ export default function LanguageSelector({
                                         key={lang}
                                         onClick={() => toggleLanguage(lang)}
                                         className={`w-full text-left px-4 py-2 text-sm transition flex items-center gap-2 ${isSelected
-                                            ? 'bg-violet-500/20 text-violet-300'
-                                            : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                                            ? 'bg-primary/20 text-primary'
+                                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                             }`}
                                     >
                                         <span className="flex-1 truncate">{getDisplayName(lang)}</span>
-                                        {isPrimary && <span className="text-xs text-violet-400 shrink-0">★</span>}
-                                        {isSelected && <span className="text-violet-400 shrink-0">✓</span>}
+                                        {isPrimary && <span className="text-xs text-primary shrink-0">★</span>}
+                                        {isSelected && <span className="text-primary shrink-0">✓</span>}
                                     </button>
                                 );
                             })
                         ) : (
-                            <div className="px-4 py-3 text-xs text-gray-500 text-center">
+                            <div className="px-4 py-3 text-xs text-muted-foreground text-center">
                                 No languages found
                             </div>
                         )}

@@ -74,159 +74,179 @@ export default function TextInputPanel({
     return (
         <div className="flex-1 relative flex flex-col">
             {/* Last Sent Message - Above the text input */}
+            {/* Last Sent Message - Above the text input */}
             {lastSubmission && (
-                <div className={`border-b transition-colors duration-300 ${isAudioPlaying || isReading
-                    ? 'bg-violet-500/10 border-violet-500/50'
-                    : 'bg-white/5 border-white/5'
-                    }`}>
-                    {/* Main last sent row */}
-                    <div className="px-4 py-2 flex items-center justify-between gap-3">
-                        <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 flex-1 min-w-0 items-start">
-                            <div className="flex flex-row items-center md:flex-col md:items-start gap-2 md:gap-0.5 shrink-0 md:min-w-[60px]">
-                                <div className="flex items-center gap-1">
-                                    <span className={`text-[10px] uppercase tracking-wider font-bold ${showActiveState ? (isReading ? 'text-emerald-400' : 'text-violet-400') : 'text-gray-600'}`}>
-                                        {showActiveState ? (isReading ? 'Reading...' : 'Speaking...') : 'Sent'}
+                <div className="border-b border-border bg-muted/5">
+                    <div className="p-2">
+                        <div className={`py-1 px-2 rounded-lg transition-all ${showActiveState
+                            ? 'bg-primary/10 border border-primary/20 flex flex-col gap-1.5'
+                            : 'hover:bg-muted border border-transparent flex items-center gap-2'
+                            }`}>
+
+                            {/* Header Layout when playing (Badge + Status + Button) */}
+                            <div className={`flex items-center ${showActiveState ? 'justify-between w-full' : 'gap-2 shrink-0'}`}>
+                                <div className={`flex items-center ${showActiveState ? 'gap-2' : ''}`}>
+                                    {/* SENT Badge */}
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono min-w-[32px] text-center transition-all shrink-0 ${showActiveState
+                                        ? 'bg-primary/20 text-primary ring-1 ring-primary/50'
+                                        : 'bg-muted text-muted-foreground'
+                                        }`}>
+                                        SENT
                                     </span>
+
+                                    {/* Speaking Indicator (Only visible here when playing) */}
                                     {showActiveState && (
-                                        <span className="flex gap-0.5 items-end h-2">
-                                            <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                            <span className={`w-0.5 h-2 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                            <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="flex gap-0.5 items-end h-2">
+                                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                                <span className={`w-0.5 h-2 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
-                                <span className={`text-[10px] px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono leading-none`}>
-                                    {(languages[0] || 'en').toUpperCase()}
-                                </span>
+
+                                {/* Stop Button (Only visible here when playing) */}
+                                {showActiveState && (
+                                    <div className="flex items-center gap-1">
+                                        {hasTranslations && (
+                                            <button
+                                                onClick={() => setShowTranslations(!showTranslations)}
+                                                className={`p-1 rounded-full transition-all ${showTranslations ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                                title={showTranslations ? "Hide translations" : "Show translations"}
+                                            >
+                                                <svg className={`w-3.5 h-3.5 transition-transform ${showTranslations ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                        {onStopTTS && (
+                                            <button
+                                                onClick={onStopTTS}
+                                                className="p-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shrink-0 transition-all"
+                                                title="Stop"
+                                            >
+                                                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                                                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
-                            <div className={`text-sm max-h-24 overflow-y-auto whitespace-pre-wrap break-words font-medium custom-scrollbar ${isAudioPlaying ? 'text-violet-200' : 'text-gray-300'}`}>
+
+                            {/* Text Content */}
+                            <div className={`text-sm transition-all min-w-0 ${showActiveState
+                                ? 'text-violet-700 dark:text-violet-400 font-medium whitespace-pre-wrap pl-1'
+                                : 'flex-1 text-muted-foreground truncate'
+                                }`}>
                                 {highlightedWordIndex !== undefined && highlightedWordIndex >= 0
                                     ? renderHighlightedText(lastSubmission.text, highlightedWordIndex)
                                     : lastSubmission.text}
                             </div>
-                        </div>
 
-                        <div className="flex items-center gap-1 shrink-0">
-                            {/* Toggle translations button */}
-                            {hasTranslations && (
-                                <button
-                                    onClick={() => setShowTranslations(!showTranslations)}
-                                    className={`p-1.5 rounded-full transition-all ${showTranslations
-                                        ? 'bg-violet-500/20 text-violet-400'
-                                        : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
-                                        }`}
-                                    title={showTranslations ? "Hide translations" : "Show translations"}
-                                >
-                                    <svg className={`w-3.5 h-3.5 transition-transform ${showTranslations ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                            )}
-
-                            {/* Play/Stop Button for Last Message */}
-                            {onPlayTTS && (
-                                <button
-                                    onClick={() => {
-                                        if (showActiveState && onStopTTS) {
-                                            onStopTTS();
-                                        } else {
-                                            onPlayTTS(lastSubmission.text);
-                                        }
-                                    }}
-                                    className={`p-1.5 rounded-full transition-all ${showActiveState
-                                        ? 'bg-violet-500 text-white hover:bg-violet-600 shadow-lg'
-                                        : 'text-gray-400 hover:text-white hover:bg-white/10'
-                                        }`}
-                                    title={showActiveState ? "Stop" : "Play Again"}
-                                >
-                                    {showActiveState ? (
-                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                            <rect x="6" y="6" width="12" height="12" rx="2" />
-                                        </svg>
-                                    ) : (
-                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M8 5v14l11-7z" />
-                                        </svg>
+                            {/* Play Button & Toggle (Only visible here when NOT playing) */}
+                            {!showActiveState && (
+                                <div className="flex items-center gap-1 shrink-0">
+                                    {hasTranslations && (
+                                        <button
+                                            onClick={() => setShowTranslations(!showTranslations)}
+                                            className={`p-1 rounded-full transition-all ${showTranslations ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                            title={showTranslations ? "Hide translations" : "Show translations"}
+                                        >
+                                            <svg className={`w-3.5 h-3.5 transition-transform ${showTranslations ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
                                     )}
-                                </button>
+                                    {onPlayTTS && (
+                                        <button
+                                            onClick={() => onPlayTTS(lastSubmission.text)}
+                                            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 transition-all"
+                                            title="Play Again"
+                                        >
+                                            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M8 5v14l11-7z" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
                             )}
                         </div>
-                    </div>
 
-                    {/* Translations section - collapsible */}
-                    {showTranslations && hasTranslations && (
-                        <div className="px-4 pb-2 max-h-24 overflow-y-auto custom-scrollbar border-t border-white/5">
-                            <div className="space-y-1 pt-2">
-                                {languages.slice(1).map(lang => {
-                                    const text = lastSentTranslations[lang];
-                                    if (!text) return null;
-                                    const translationKey = `translation-${lang}`;
-                                    const isPlayingThis = currentlyPlayingKey === translationKey;
+                        {/* Translations section - collapsible */}
+                        {showTranslations && hasTranslations && (
+                            <div className="px-4 pb-2 max-h-24 overflow-y-auto custom-scrollbar border-t border-border">
+                                <div className="space-y-1 pt-2">
+                                    {languages.slice(1).map(lang => {
+                                        const text = lastSentTranslations[lang];
+                                        if (!text) return null;
+                                        const translationKey = `translation-${lang}`;
+                                        const isPlayingThis = currentlyPlayingKey === translationKey;
 
-                                    return (
-                                        <div key={lang} className={`py-1 px-2 rounded transition-all ${isPlayingThis ? 'bg-violet-500/10 flex flex-col gap-1.5' : 'hover:bg-white/5 flex items-center gap-2'}`}>
-                                            <div className={`flex items-center ${isPlayingThis ? 'justify-between w-full' : 'gap-2'}`}>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-xs px-1.5 py-0.5 rounded font-mono shrink-0 ${isPlayingThis ? 'bg-violet-500/20 text-violet-300' : 'bg-white/10 text-gray-400'}`}>
-                                                        {lang.toUpperCase()}
-                                                    </span>
-                                                    {isPlayingThis && (
-                                                        <span className="flex gap-0.5 items-end h-2.5 shrink-0">
-                                                            <span className="w-0.5 h-1 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
-                                                            <span className="w-0.5 h-2.5 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
-                                                            <span className="w-0.5 h-1.5 bg-violet-400 animate-[pulse_0.7s_infinite]"></span>
+                                        return (
+                                            <div key={lang} className={`py-1 px-2 rounded transition-all ${isPlayingThis ? 'bg-primary/10 flex flex-col gap-1.5' : 'hover:bg-muted flex items-center gap-2'}`}>
+                                                <div className={`flex items-center ${isPlayingThis ? 'justify-between w-full' : 'gap-2'}`}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-xs px-1.5 py-0.5 rounded font-mono shrink-0 ${isPlayingThis ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                                            {lang.toUpperCase()}
                                                         </span>
+                                                        {isPlayingThis && (
+                                                            <span className="flex gap-0.5 items-end h-2.5 shrink-0">
+                                                                <span className="w-0.5 h-1 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
+                                                                <span className="w-0.5 h-2.5 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
+                                                                <span className="w-0.5 h-1.5 bg-violet-400 animate-[pulse_0.7s_infinite]"></span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {isPlayingThis && onPlayTranslationAudio && (
+                                                        <button
+                                                            onClick={() => {
+                                                                onStopTTS && onStopTTS();
+                                                            }}
+                                                            className="p-1 rounded-full bg-primary text-primary-foreground shrink-0 hover:bg-primary/90"
+                                                            title="Stop"
+                                                        >
+                                                            <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
+                                                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                                                            </svg>
+                                                        </button>
                                                     )}
                                                 </div>
-                                                {isPlayingThis && onPlayTranslationAudio && (
+
+                                                <span className={`text-xs ${isPlayingThis ? 'text-primary whitespace-pre-wrap pl-1' : 'flex-1 text-muted-foreground truncate'}`}>
+                                                    {text}
+                                                </span>
+
+                                                {!isPlayingThis && onPlayTranslationAudio && (
                                                     <button
                                                         onClick={() => {
-                                                            onStopTTS && onStopTTS();
+                                                            onPlayTranslationAudio(text, lang, translationKey);
                                                         }}
-                                                        className="p-1 rounded-full bg-violet-500 text-white shrink-0 hover:bg-violet-600"
-                                                        title="Stop"
+                                                        className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 transition-all"
+                                                        title={`Play ${lang}`}
                                                     >
-                                                        <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
-                                                            <rect x="6" y="6" width="12" height="12" rx="2" />
+                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M8 5v14l11-7z" />
                                                         </svg>
                                                     </button>
                                                 )}
                                             </div>
-
-                                            <span className={`text-xs ${isPlayingThis ? 'text-violet-200 whitespace-pre-wrap pl-1' : 'flex-1 text-gray-400 truncate'}`}>
-                                                {text}
-                                            </span>
-
-                                            {!isPlayingThis && onPlayTranslationAudio && (
-                                                <button
-                                                    onClick={() => {
-                                                        onPlayTranslationAudio(text, lang, translationKey);
-                                                    }}
-                                                    className="p-1 rounded-full text-gray-500 hover:text-white hover:bg-white/10 shrink-0 transition-all"
-                                                    title={`Play ${lang}`}
-                                                >
-                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                                        <path d="M8 5v14l11-7z" />
-                                                    </svg>
-                                                </button>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                        );
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
-            )}
-
-            <div className="flex-1 relative">
+            )}<div className="flex-1 relative">
                 {/* Instant Mode Toggle - Moved here */}
                 <div className="absolute top-4 right-4 z-10">
                     <button
                         onClick={onBuildModeToggle}
                         className={`w-8 h-8 rounded-full flex items-center justify-center transition shadow-lg ${!buildMode
                             ? 'bg-violet-500 text-white'
-                            : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
                             }`}
                         title={buildMode ? "Instant mode: OFF - Build then submit" : "Instant mode: ON - Auto-process"}
                     >
@@ -263,7 +283,7 @@ export default function TextInputPanel({
                         }
                     }}
                     placeholder={highlightedWordIndex && highlightedWordIndex >= 0 ? "" : "Type Your Message Here..."}
-                    className={`w-full h-full bg-transparent text-xl placeholder:text-gray-600 focus:outline-none resize-none leading-relaxed p-6 pb-16 ${highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? 'text-transparent caret-transparent selection:bg-transparent selection:text-transparent' : ''}`}
+                    className={`w-full h-full bg-transparent text-xl placeholder:text-muted-foreground/60 text-foreground focus:outline-none resize-none leading-relaxed p-6 pb-16 ${highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? 'text-transparent caret-transparent selection:bg-transparent selection:text-transparent' : ''}`}
                 />
 
                 {/* Controls (bottom) */}
@@ -272,10 +292,10 @@ export default function TextInputPanel({
                     {audioActive ? (
                         <div className="flex items-center gap-2 bg-violet-500/20 border border-violet-500/30 rounded-lg px-3 py-1.5">
                             <span className="w-2 h-2 bg-violet-500 rounded-full animate-pulse"></span>
-                            <p className="text-violet-300 text-xs font-medium">{audioTranscript || 'Listening...'}</p>
+                            <p className="text-violet-800 dark:text-violet-300 text-xs font-medium">{audioTranscript || 'Listening...'}</p>
                         </div>
                     ) : (
-                        <div className="text-xs text-gray-600">{value.length}/500</div>
+                        <div className="text-xs text-muted-foreground">{value.length}/500</div>
                     )}
 
                     {/* Right side controls */}
@@ -308,7 +328,7 @@ export default function TextInputPanel({
                             onClick={onToggleAudio}
                             className={`w-10 h-10 rounded-full flex items-center justify-center transition ${audioActive
                                 ? 'bg-red-500 text-white animate-pulse'
-                                : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+                                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
                                 }`}
                             title={audioActive ? 'Stop listening' : 'Voice input'}
                         >

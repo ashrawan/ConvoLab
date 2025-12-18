@@ -43,10 +43,10 @@ export default function ConversationSuggestions({
                 <button
                     key={idx}
                     onClick={() => onSelectSuggestion(suggestion.phrase)}
-                    className="group relative bg-white/5 hover:bg-violet-500/10 border border-white/10 hover:border-violet-500/30 rounded-xl p-4 transition text-left"
+                    className="group relative bg-card hover:bg-primary/5 border border-border hover:border-primary/30 rounded-xl p-4 transition text-left"
                 >
                     <div className="flex flex-col gap-2">
-                        <p className="text-xs md:text-base text-white group-hover:text-violet-300 transition font-medium truncate">
+                        <p className="text-xs md:text-base text-card-foreground group-hover:text-primary transition font-medium truncate">
                             {suggestion.phrase}
                         </p>
                         {suggestion.translations && Object.keys(suggestion.translations).length > 0 && (
@@ -54,8 +54,8 @@ export default function ConversationSuggestions({
                                 {Object.entries(suggestion.translations).map(([lang, text]) => (
                                     <div key={lang} className="flex items-center justify-between text-[10px] md:text-xs">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-gray-500">{lang.toUpperCase()}:</span>
-                                            <span className="text-gray-400">{text}</span>
+                                            <span className="text-muted-foreground">{lang.toUpperCase()}:</span>
+                                            <span className="text-muted-foreground/80">{text}</span>
                                         </div>
                                         {onPlayAudio && (
                                             <span
@@ -63,7 +63,7 @@ export default function ConversationSuggestions({
                                                     e.stopPropagation();
                                                     onPlayAudio(text, lang);
                                                 }}
-                                                className="opacity-0 group-hover:opacity-100 cursor-pointer"
+                                                className="opacity-0 group-hover:opacity-100 cursor-pointer text-muted-foreground hover:text-primary"
                                             >
                                                 🔊
                                             </span>

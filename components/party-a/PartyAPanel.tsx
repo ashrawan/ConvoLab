@@ -130,7 +130,7 @@ export default function PartyAPanel({
     }, []);
 
     return (
-        <div ref={containerRef} className="w-1/2 flex flex-col border-r border-white/5">
+        <div ref={containerRef} className="w-1/2 flex flex-col border-r border-border">
             {/* Context Input */}
             <ContextInput
                 party="A"
@@ -147,13 +147,13 @@ export default function PartyAPanel({
             {/* Top Section - Text Input + Translations (Resizable) */}
             <div
                 ref={topSectionRef}
-                className={`border-b border-white/5 flex flex-col overflow-hidden ${isPhrasesCollapsed ? 'flex-1' : ''}`}
+                className={`border-b border-border flex flex-col overflow-hidden ${isPhrasesCollapsed ? 'flex-1' : ''}`}
                 style={isPhrasesCollapsed ? undefined : { height: topSectionHeight ?? '60%' }}
             >
                 {/* Text Input + Video */}
                 <div className="flex flex-1 min-h-0">
                     {/* Text Input Panel - Always visible */}
-                    <div className={`${videoActive ? 'w-1/2 border-r border-white/5' : 'w-full'} flex flex-col overflow-hidden`}>
+                    <div className={`${videoActive ? 'w-1/2 border-r border-border' : 'w-full'} flex flex-col overflow-hidden`}>
                         <TextInputPanel
                             value={input}
                             onChange={onInputChange}
@@ -204,10 +204,10 @@ export default function PartyAPanel({
                 {/* Translations Label + Resize Handle */}
                 <button
                     onClick={onToggleTranslations}
-                    className="w-full px-3 py-1 shrink-0 border-t border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
+                    className="w-full px-3 py-1 shrink-0 border-t border-border flex items-center justify-between hover:bg-accent transition-colors"
                 >
-                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Translations</span>
-                    <svg className={`w-3 h-3 text-gray-500 transition-transform ${isTranslationsCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Translations</span>
+                    <svg className={`w-3 h-3 text-muted-foreground transition-transform ${isTranslationsCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                 </button>
@@ -240,10 +240,10 @@ export default function PartyAPanel({
             {/* Suggested Phrases Label + Resize Handle */}
             <button
                 onClick={onTogglePhrases}
-                className="w-full px-4 py-2 border-t border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
+                className="w-full px-4 py-2 border-t border-border flex items-center justify-between hover:bg-accent transition-colors"
             >
-                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Suggested Phrases</h3>
-                <svg className={`w-3 h-3 text-gray-400 transition-transform ${isPhrasesCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Suggested Phrases</h3>
+                <svg className={`w-3 h-3 text-muted-foreground transition-transform ${isPhrasesCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
             </button>
@@ -265,10 +265,10 @@ export default function PartyAPanel({
                         {/* Image Visualization */}
                         {images.length > 0 && (
                             <div className="mt-4">
-                                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Visual Context</div>
+                                <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Visual Context</div>
                                 <div className="flex gap-3">
                                     {images.map((img, idx) => (
-                                        <div key={idx} className="relative w-40 h-28 rounded-lg overflow-hidden border border-white/10">
+                                        <div key={idx} className="relative w-40 h-28 rounded-lg overflow-hidden border border-border">
                                             <img
                                                 src={img}
                                                 alt="Context visual"
