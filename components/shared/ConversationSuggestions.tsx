@@ -46,13 +46,13 @@ export default function ConversationSuggestions({
                     className="group relative bg-white/5 hover:bg-violet-500/10 border border-white/10 hover:border-violet-500/30 rounded-xl p-4 transition text-left"
                 >
                     <div className="flex flex-col gap-2">
-                        <p className="text-white group-hover:text-violet-300 transition font-medium">
+                        <p className="text-xs md:text-base text-white group-hover:text-violet-300 transition font-medium truncate">
                             {suggestion.phrase}
                         </p>
                         {suggestion.translations && Object.keys(suggestion.translations).length > 0 && (
                             <div className="space-y-1">
                                 {Object.entries(suggestion.translations).map(([lang, text]) => (
-                                    <div key={lang} className="flex items-center justify-between text-xs">
+                                    <div key={lang} className="flex items-center justify-between text-[10px] md:text-xs">
                                         <div className="flex items-center gap-2">
                                             <span className="text-gray-500">{lang.toUpperCase()}:</span>
                                             <span className="text-gray-400">{text}</span>

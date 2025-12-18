@@ -262,7 +262,7 @@ export default function TextInputPanel({
                             }
                         }
                     }}
-                    placeholder={highlightedWordIndex && highlightedWordIndex >= 0 ? "" : "Type your message here..."}
+                    placeholder={highlightedWordIndex && highlightedWordIndex >= 0 ? "" : "Type Your Message Here..."}
                     className={`w-full h-full bg-transparent text-xl placeholder:text-gray-600 focus:outline-none resize-none leading-relaxed p-6 pb-16 ${highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? 'text-transparent caret-transparent selection:bg-transparent selection:text-transparent' : ''}`}
                 />
 

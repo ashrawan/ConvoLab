@@ -45,10 +45,10 @@ export default function PhraseSuggestions({
                     }}
                     className="px-4 py-3 rounded-lg bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/40 transition text-left"
                 >
-                    <div className="text-sm text-gray-300 hover:text-violet-300">
+                    <div className="text-xs md:text-sm text-gray-300 hover:text-violet-300 truncate">
                         {pred.phrase}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-[10px] md:text-xs text-gray-500 mt-1">
                         {Math.round(pred.probability * 100)}% match
                     </div>
                 </button>

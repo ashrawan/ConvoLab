@@ -366,7 +366,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                                 isRecording ? "Listening..." :
                                     "Lets have a conversation... "
                     }
-                    className="flex-1 bg-transparent border-none placeholder-gray-500 px-3 py-3 md:px-4 md:py-4 focus:outline-none focus:ring-0 text-sm md:text-base font-light tracking-wide text-white transition-colors duration-300"
+                    className="flex-1 min-w-0 bg-transparent border-none placeholder-gray-500 px-3 py-3 md:px-4 md:py-4 focus:outline-none focus:ring-0 text-sm md:text-base font-light tracking-wide text-white transition-colors duration-300"
                     disabled={isLoading || isProcessingAudio}
                     autoFocus
                 />
@@ -379,7 +379,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                 />
 
                 {/* Right Actions */}
-                <div className="pr-2 flex items-center gap-1">
+                <div className="pr-1 md:pr-2 flex items-center gap-0.5 md:gap-1 shrink-0">
                     {/* Cancel Button (Visible only when Recording) */}
                     {isRecording && (
                         <button
@@ -389,7 +389,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                                 await stopRecording(); // Just to clean up streams
                                 setInput(''); // Clear input
                             }}
-                            className="p-2 md:p-3 rounded-full hover:bg-white/5 text-gray-400 hover:text-white transition-all duration-300"
+                            className="p-1.5 md:p-3 rounded-full hover:bg-white/5 text-gray-400 hover:text-white transition-all duration-300"
                             title="Cancel Recording"
                         >
                             <svg
@@ -402,6 +402,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                className="w-3.5 h-3.5 md:w-5 md:h-5"
                             >
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
                                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -415,10 +416,10 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                             type="button"
                             onClick={handleSurpriseMe}
                             disabled={isLoading || isProcessingAudio}
-                            className="p-2 md:p-3 rounded-full hover:bg-white/5 text-gray-400 hover:text-purple-400 transition-all duration-300 group/surprise"
+                            className="p-1.5 md:p-3 rounded-full hover:bg-white/5 text-gray-400 hover:text-purple-400 transition-all duration-300 group/surprise"
                             title={input ? "Remix this idea" : "Feeling Lucky (Conversation Context)"}
                         >
-                            <ShuffleIcon className="transition-transform duration-700 group-hover/surprise:rotate-180" />
+                            <ShuffleIcon className="w-3.5 h-3.5 md:w-5 md:h-5 transition-transform duration-700 group-hover/surprise:rotate-180" />
                         </button>
                     )}
 
@@ -427,18 +428,18 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                         type="button"
                         onClick={handleMicClick}
                         disabled={isLoading || isProcessingAudio}
-                        className={`p-2 md:p-3 rounded-full transition-all duration-300 ${isRecording
+                        className={`p-1.5 md:p-3 rounded-full transition-all duration-300 ${isRecording
                             ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
                             }`}
                         title={isRecording ? "Finish & Process" : "Start Voice Input"}
                     >
                         {isProcessingAudio ? (
-                            <LoaderIcon className="animate-spin text-purple-500" />
+                            <LoaderIcon className="w-3.5 h-3.5 md:w-5 md:h-5 animate-spin text-purple-500" />
                         ) : isRecording ? (
-                            <CheckIcon />
+                            <CheckIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
                         ) : (
-                            <MicIcon />
+                            <MicIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
                         )}
                     </button>
 
@@ -446,12 +447,12 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                     <button
                         type="submit"
                         disabled={!input.trim() || isLoading || isRecording}
-                        className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 transform ml-1"
+                        className="p-1.5 md:p-3 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 transform ml-0.5 md:ml-1"
                     >
                         {isLoading ? (
-                            <LoaderIcon className="animate-spin" />
+                            <LoaderIcon className="w-3.5 h-3.5 md:w-5 md:h-5 animate-spin" />
                         ) : (
-                            <ArrowRightIcon />
+                            <ArrowRightIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
                         )}
                     </button>
                 </div>
@@ -480,7 +481,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     );
 
     return (
-        <div className={`w-full flex items-center justify-between gap-4 md:gap-8 ${className || ''}`}>
+        <div className={`w-full flex items-center justify-between gap-2 md:gap-8 ${className || ''}`}>
             {/* Left Slot: Brand */}
             <div className="shrink-0">
                 {brandContent}

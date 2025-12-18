@@ -187,7 +187,7 @@ export default function Home() {
       {/* Minimal Header */}
       {/* Minimal Header */}
       {/* Unified Header & Context Input */}
-      <div className="sticky top-0 z-50 pt-4 pb-4 px-4 md:px-8 bg-[#0f0f10]/95 backdrop-blur-xl border-b border-white/5">
+      <div className="sticky top-0 z-50 pt-4 pb-4 px-3 md:px-8 bg-[#0f0f10]/95 backdrop-blur-xl border-b border-white/5">
         <ConvoContextInput
           onContextSet={handleContextSet}
           className="shadow-2xl shadow-purple-900/10"
@@ -202,11 +202,20 @@ export default function Home() {
 
           // Left: Brand
           brandContent={
-            <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity hidden md:flex">
-              <img src="/icon.svg" alt="ConvoLab Logo" className="w-6 h-6 rounded-md shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
-              <h1 className="text-base font-semibold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-                Convo Lab
-              </h1>
+            <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
+              {/* Desktop Logo */}
+              <div className="hidden md:flex items-center gap-3">
+                <img src="/icon.svg" alt="ConvoLab Logo" className="w-6 h-6 rounded-md shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
+                <h1 className="text-base font-semibold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+                  Convo Lab
+                </h1>
+              </div>
+              {/* Mobile Logo */}
+              <div className="md:hidden flex items-center">
+                <h1 className="text-sm font-bold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+                  CL
+                </h1>
+              </div>
             </div>
           }
 
