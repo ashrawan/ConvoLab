@@ -5,7 +5,6 @@ export const LANGUAGE_NAMES: Record<string, string> = {
     'de': 'German',
     'it': 'Italian',
     'pt': 'Portuguese',
-    'zh': 'Chinese',
     'zh-cn': 'Chinese (Simplified)',
     'zh-tw': 'Chinese (Traditional)',
     'ja': 'Japanese',
