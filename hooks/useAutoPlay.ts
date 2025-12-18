@@ -458,6 +458,21 @@ export function useAutoPlay({
         }));
     }, []);
 
+    // Stop autoplay when tab becomes hidden
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden && isRunningRef.current) {
+                console.log('🙈 Tab hidden - stopping auto-play');
+                stop();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [stop]);
+
     // Toggle between start and pause
     const toggle = useCallback(() => {
         console.log('🔄 Toggle called, isRunning:', isRunningRef.current, 'isPaused:', isPausedRef.current);

@@ -83,7 +83,7 @@ export default function TextInputPanel({
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                             <div className="flex items-center gap-2 shrink-0">
                                 <span className={`text-xs uppercase tracking-wide font-medium ${showActiveState ? (isReading ? 'text-emerald-400' : 'text-violet-400') : 'text-gray-500'}`}>
-                                    {showActiveState ? (isReading ? 'Reading...' : 'Speaking...') : 'Last Sent'}
+                                    {showActiveState ? (isReading ? 'Reading...' : 'Speaking...') : 'Sent'}
                                 </span>
                                 {showActiveState && (
                                     <span className="flex gap-0.5 items-end h-3">

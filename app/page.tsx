@@ -156,17 +156,18 @@ export default function Home() {
   // Render
   // ============================================================================
   return (
-    <main className="h-screen bg-[#0f0f10] text-white flex flex-col overflow-hidden font-sans selection:bg-purple-500/30">
+    <main className="h-screen bg-[#0f0f10] text-white flex flex-col overflow-y-auto lg:overflow-hidden font-sans selection:bg-purple-500/30">
       {/* Minimal Header */}
-      <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-8 py-6 pointer-events-none">
-        <div className="pointer-events-auto flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
+      {/* Minimal Header */}
+      <header className="sticky top-0 z-50 flex items-center justify-between px-4 lg:px-8 py-4 bg-[#0f0f10]/80 backdrop-blur-md border-b border-white/5">
+        <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
           <img src="/icon.svg" alt="ConvoLab Logo" className="w-6 h-6 rounded-md shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
           <h1 className="text-base font-semibold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
             Convo Lab
           </h1>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-4">
+        <div className="flex items-center gap-4">
           <TTSSettings
             pauseMicOnAudio={pauseMicOnAudio}
             onPauseMicChange={setPauseMicOnAudio}
@@ -184,7 +185,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section with Context Input */}
-      <div className="relative pt-12 pb-6 px-6 flex flex-col items-center justify-center bg-gradient-to-b from-[#131313] to-[#0f0f10] border-b border-white/5">
+      <div className="relative pt-6 pb-6 px-4 md:px-6 flex flex-col items-center justify-center bg-gradient-to-b from-[#131313] to-[#0f0f10] border-b border-white/5">
         <div className="w-full max-w-3xl relative z-10">
           <ConvoContextInput
             onContextSet={handleContextSet}
@@ -196,8 +197,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Main Content - Two Column Split */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main Content - Two Column Split (Always Side-by-Side) */}
+      <div className="flex-1 flex flex-row overflow-hidden">
         {/* PARTY A (HUMAN) - LEFT SIDE */}
         <PartyAPanel
           context={partyA.state.context}

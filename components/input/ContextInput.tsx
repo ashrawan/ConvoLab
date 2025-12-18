@@ -97,80 +97,74 @@ export default function ContextInput({
     const primaryLanguage = selectedLanguages[0] || 'en';
 
     return (
-        <div className="relative flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-[#0a0a0b]">
+        <div className="relative flex flex-nowrap items-center gap-2 px-3 py-2 border-b border-white/5 bg-[#0a0a0b] z-20">
             {/* Party Label */}
-            <div className={`flex items-center gap-2 min-w-[100px] ${party === 'A' ? 'text-violet-400' : 'text-emerald-400'
-                }`}>
-                <span className="font-semibold">{party === 'A' ? 'You' : 'Assistant'}</span>
+            <div className={`flex items-center gap-2 shrink-0 ${party === 'A' ? 'text-violet-400' : 'text-emerald-400'}`}>
+                <span className="font-semibold text-sm md:text-base">{party === 'A' ? 'You' : 'AI'}</span>
 
-                {/* Video Toggle Icon - Only for Party A, on the left */}
+                {/* Video Toggle Icon - Only for Party A */}
                 {party === 'A' && onVideoVisibleChange && (
                     <button
                         onClick={onVideoVisibleChange}
-                        className={`w-7 h-7 flex items-center justify-center rounded-lg transition ${videoVisible
-                            ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                            : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
+                        className={`w-6 h-6 flex items-center justify-center rounded transition ${videoVisible
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'bg-white/5 text-gray-500 hover:text-gray-300'
                             }`}
                         title={videoVisible ? "Hide video" : "Show video"}
                     >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
                         </svg>
                     </button>
                 )}
-
             </div>
 
-            {/* Context Label */}
-            <span className="text-xs text-gray-500">Context:</span>
+            {/* Context Input - Flexible with min-width to prevent overflow */}
+            <div className="flex-1 min-w-0 relative group">
+                <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder={party === 'A' ? 'Chat context...' : 'AI role...'}
+                    className="w-full bg-transparent text-sm placeholder:text-gray-600 focus:outline-none px-2 py-1 rounded hover:bg-white/5 focus:bg-white/5 transition truncate"
+                />
+            </div>
 
-            {/* Context Input */}
-            <input
-                type="text"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={party === 'A' ? 'e.g., Chat with AI, Help me with ...' : 'e.g., Assist the user'}
-                className="flex-1 bg-transparent text-sm placeholder:text-gray-600 focus:outline-none px-3 py-1.5 rounded-lg hover:bg-white/5 focus:bg-white/5 transition"
-            />
-
-            {/* Language Code Badges */}
-            <div className="flex items-center gap-1">
-                {selectedLanguages.slice(0, 3).map((lang, idx) => (
+            {/* Language Code Badges - Compact on mobile */}
+            <div className="flex items-center gap-1 shrink-0">
+                {selectedLanguages.slice(0, 1).map((lang) => (
                     <span
                         key={lang}
-                        className={`text-xs px-2 py-0.5 rounded ${idx === 0
-                            ? 'bg-emerald-500/20 text-emerald-300 font-semibold'
-                            : 'bg-white/10 text-gray-400'
-                            }`}
-                        title={idx === 0 ? 'Primary language' : ''}
+                        className="text-[10px] md:text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-medium"
                     >
                         {lang.toUpperCase()}
                     </span>
                 ))}
-                {selectedLanguages.length > 3 && (
-                    <span className="text-xs px-2 py-0.5 bg-white/10 rounded text-gray-400">
-                        +{selectedLanguages.length - 3}
+                {selectedLanguages.length > 1 && (
+                    <span className="text-[10px] md:text-xs text-gray-500">
+                        +{selectedLanguages.length - 1}
                     </span>
                 )}
             </div>
 
             {/* Settings Menu */}
-            <div className="relative" ref={menuRef}>
+            <div className="relative shrink-0" ref={menuRef}>
                 <button
                     onClick={() => setShowMenu(!showMenu)}
-                    className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition"
+                    className="w-7 h-7 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition"
                     title="Language settings"
                 >
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <circle cx="12" cy="5" r="1.5" />
                         <circle cx="12" cy="12" r="1.5" />
                         <circle cx="12" cy="19" r="1.5" />
                     </svg>
                 </button>
 
-                {/* Dropdown Menu */}
+                {/* Dropdown Menu - Context Aware Positioning */}
                 {showMenu && (
-                    <div className="absolute right-0 top-full mt-1 bg-[#1a1a1d] border border-white/10 rounded-xl shadow-xl z-30 py-2 min-w-[300px]">
+                    <div className={`absolute top-full mt-1 bg-[#1a1a1d] border border-white/10 rounded-xl shadow-2xl z-50 py-2 w-[280px] max-w-[90vw] ${party === 'A' ? 'left-0 origin-top-left' : 'right-0 origin-top-right'
+                        }`}>
                         {/* Selected Languages Section */}
                         {onLanguagesChange && selectedLanguages.length > 0 && (
                             <>

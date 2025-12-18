@@ -256,13 +256,13 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                             setIsCollapsed(false);
                             setInput(submittedText);
                         }}
-                        className="flex items-center gap-3 flex-1 cursor-pointer hover:bg-white/5 rounded-full px-2 py-1 transition-all"
+                        className="flex items-center gap-3 flex-1 cursor-pointer hover:bg-white/5 rounded-full px-2 py-1 transition-all min-w-0"
                     >
-                        <SparklesIcon className="w-4 h-4 text-purple-400" />
-                        <span className="text-gray-300 text-sm font-light truncate max-w-sm">
+                        <SparklesIcon className="w-4 h-4 text-purple-400 shrink-0" />
+                        <span className="text-gray-300 text-xs md:text-sm font-light truncate">
                             {submittedText}
                         </span>
-                        <span className="text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-md hover:bg-white/10 transition-colors">
+                        <span className="text-[10px] md:text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-md hover:bg-white/10 transition-colors shrink-0">
                             Edit
                         </span>
                     </div>
@@ -319,8 +319,8 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
 
             <div className={`relative flex items-center bg-[#1E1E1F] border transition-all duration-300 rounded-full shadow-lg overflow-hidden ${isRecording ? 'border-blue-400/50 bg-[#151a25]' : 'border-white/10 hover:border-white/20 focus-within:border-purple-500/30'}`}>
                 {/* Icon / Status */}
-                <div className="pl-5 text-purple-400">
-                    <SparklesIcon className="w-5 h-5 opacity-80" />
+                <div className="pl-3 md:pl-5 text-purple-400">
+                    <SparklesIcon className="w-4 h-4 md:w-5 md:h-5 opacity-80" />
                 </div>
 
                 <input
@@ -333,7 +333,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                                 isRecording ? "Listening..." :
                                     "Lets have a conversation... "
                     }
-                    className="flex-1 bg-transparent border-none placeholder-gray-500 px-4 py-4 focus:outline-none focus:ring-0 text-base font-light tracking-wide text-white transition-colors duration-300"
+                    className="flex-1 bg-transparent border-none placeholder-gray-500 px-3 py-3 md:px-4 md:py-4 focus:outline-none focus:ring-0 text-sm md:text-base font-light tracking-wide text-white transition-colors duration-300"
                     disabled={isLoading || isProcessingAudio}
                     autoFocus
                 />
@@ -356,7 +356,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                                 await stopRecording(); // Just to clean up streams
                                 setInput(''); // Clear input
                             }}
-                            className="p-3 rounded-full hover:bg-white/5 text-gray-400 hover:text-white transition-all duration-300"
+                            className="p-2 md:p-3 rounded-full hover:bg-white/5 text-gray-400 hover:text-white transition-all duration-300"
                             title="Cancel Recording"
                         >
                             <svg
@@ -382,7 +382,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                             type="button"
                             onClick={handleSurpriseMe}
                             disabled={isLoading || isProcessingAudio}
-                            className="p-3 rounded-full hover:bg-white/5 text-gray-400 hover:text-purple-400 transition-all duration-300 group/surprise"
+                            className="p-2 md:p-3 rounded-full hover:bg-white/5 text-gray-400 hover:text-purple-400 transition-all duration-300 group/surprise"
                             title={input ? "Remix this idea" : "Feeling Lucky (Conversation Context)"}
                         >
                             <ShuffleIcon className="transition-transform duration-700 group-hover/surprise:rotate-180" />
@@ -394,7 +394,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                         type="button"
                         onClick={handleMicClick}
                         disabled={isLoading || isProcessingAudio}
-                        className={`p-3 rounded-full transition-all duration-300 ${isRecording
+                        className={`p-2 md:p-3 rounded-full transition-all duration-300 ${isRecording
                             ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30'
                             : 'hover:bg-white/5 text-gray-400 hover:text-white'
                             }`}
@@ -413,7 +413,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                     <button
                         type="submit"
                         disabled={!input.trim() || isLoading || isRecording}
-                        className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 transform ml-1"
+                        className="p-2 md:p-3 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 transform ml-1"
                     >
                         {isLoading ? (
                             <LoaderIcon className="animate-spin" />

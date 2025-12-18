@@ -224,7 +224,7 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
                 return;
             }
 
-            const seemsComplete = response.length > 20 && !isGenerating;
+            const seemsComplete = response.length > 0 && !isGenerating;
             if (!seemsComplete) return;
 
             lastSuggestionResponse.current = response;
