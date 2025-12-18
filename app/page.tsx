@@ -135,6 +135,14 @@ export default function Home() {
   // ============================================================================
 
   const handleContextSet = (data: any) => {
+    // 0. Reset State (Clean Slate)
+    autoPlayMode.actions.stop();
+    autoPlayMode.actions.clearHistory();
+    partyA.actions.stopAllAudio();
+    partyB.actions.stopAllAudio();
+    partyA.actions.reset();
+    partyB.actions.reset();
+
     // 1. Update Party A
     if (data.party_a) {
       partyA.actions.setContext(data.party_a.context);

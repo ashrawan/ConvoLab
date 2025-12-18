@@ -450,6 +450,7 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
         setContext('');
         setTranslations({});
         setAudioTranscript('');
+        setSubmission(null);
     };
 
     return {
