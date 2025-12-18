@@ -1,4 +1,5 @@
 import { PhrasePrediction } from '@/lib/services/llm';
+import { sendEvent } from '@/lib/analytics';
 
 interface PhraseSuggestionsProps {
     predictions: PhrasePrediction[];
@@ -32,7 +33,16 @@ export default function PhraseSuggestions({
             {predictions.map((pred, idx) => (
                 <button
                     key={idx}
-                    onClick={() => onSelectPhrase(pred.phrase)}
+                    onClick={() => {
+                        onSelectPhrase(pred.phrase);
+                        sendEvent({
+                            action: 'suggestion_selected',
+                            params: {
+                                confidence: pred.probability,
+                                index: idx
+                            }
+                        });
+                    }}
                     className="px-4 py-3 rounded-lg bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-500/40 transition text-left"
                 >
                     <div className="text-sm text-gray-300 hover:text-violet-300">

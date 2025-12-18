@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { AudioVisualizer } from '@/components/shared/AudioVisualizer';
 import { getApiUrl } from '@/lib/config/api';
+import { sendEvent } from '@/lib/analytics';
 
 // Inline SVGs to avoid dependency issues
 const SparklesIcon = ({ className }: { className?: string }) => (
@@ -164,6 +165,10 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
 
             if (data.scenario) {
                 setInput(data.scenario);
+                sendEvent({
+                    action: 'conversation_spark',
+                    params: { method: 'surprise_me' }
+                });
             } else {
                 throw new Error('Invalid response format');
             }
@@ -202,6 +207,14 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
             onContextSet(data);
             setSubmittedText(input);
             setIsCollapsed(true);
+
+            sendEvent({
+                action: 'context_submitted',
+                params: {
+                    method: 'manual',
+                    char_count: input.length
+                }
+            });
 
         } catch (err: any) {
             setError(err.message || 'Something went wrong');

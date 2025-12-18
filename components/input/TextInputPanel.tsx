@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { sendEvent } from '@/lib/analytics';
 
 interface TextInputPanelProps {
     value: string;
@@ -240,7 +241,17 @@ export default function TextInputPanel({
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
-                            if (value.trim()) onSubmit();
+                            if (value.trim()) {
+                                onSubmit();
+                                sendEvent({
+                                    action: 'message_sent',
+                                    params: {
+                                        char_count: value.length,
+                                        language: (languages[0] || 'en'),
+                                        type: 'text'
+                                    }
+                                });
+                            }
                         }
                     }}
                     placeholder={highlightedWordIndex && highlightedWordIndex >= 0 ? "" : "Type your message here..."}
@@ -264,7 +275,17 @@ export default function TextInputPanel({
                         {/* Submit Button */}
                         {value && (
                             <button
-                                onClick={onSubmit}
+                                onClick={() => {
+                                    onSubmit();
+                                    sendEvent({
+                                        action: 'message_sent',
+                                        params: {
+                                            char_count: value.length,
+                                            language: (languages[0] || 'en'),
+                                            type: 'text'
+                                        }
+                                    });
+                                }}
                                 className="w-10 h-10 rounded-full bg-violet-500 hover:bg-violet-600 text-white flex items-center justify-center transition shadow-lg"
                                 title="Submit (Enter)"
                             >
