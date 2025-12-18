@@ -129,6 +129,8 @@ interface ContextInputProps {
     onAutoPlayToggle?: () => void;
     autoplayCount?: number;
     maxAutoplayCount?: number;
+    brandContent?: React.ReactNode;
+    rightContent?: React.ReactNode;
 }
 
 export const ConvoContextInput: React.FC<ContextInputProps> = ({
@@ -138,7 +140,9 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     isAutoPlayPaused = false,
     onAutoPlayToggle,
     autoplayCount,
-    maxAutoplayCount
+    maxAutoplayCount,
+    brandContent,
+    rightContent
 }) => {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -262,90 +266,86 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
         }
     };
 
-    // Collapsed View
-    if (isCollapsed) {
-        return (
-            <div className={`relative w-full max-w-2xl mx-auto mb-6 group ${className || ''}`}>
-                <div className="flex items-center justify-center gap-2 bg-[#1E1E1F] border border-white/10 rounded-full px-4 py-3">
-                    {/* Context Text - Clickable to Edit */}
-                    <div
-                        onClick={() => {
-                            setIsCollapsed(false);
-                            setInput(submittedText);
-                        }}
-                        className="flex items-center gap-3 flex-1 cursor-pointer hover:bg-white/5 rounded-full px-2 py-1 transition-all min-w-0"
-                    >
-                        <SparklesIcon className="w-4 h-4 text-purple-400 shrink-0" />
-                        <span className="text-gray-300 text-xs md:text-sm font-light truncate">
-                            {submittedText}
-                        </span>
-                        <span className="text-[10px] md:text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-md hover:bg-white/10 transition-colors shrink-0">
-                            Edit
-                        </span>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="w-px h-6 bg-white/10" />
-
-                    {/* Auto-Play Button */}
-                    {onAutoPlayToggle && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onAutoPlayToggle();
-                            }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${isAutoPlaying && !isAutoPlayPaused
-                                ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
-                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                                }`}
-                        >
-                            {isAutoPlaying && !isAutoPlayPaused ? (
-                                <>
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                        <rect x="6" y="4" width="4" height="16" rx="1" />
-                                        <rect x="14" y="4" width="4" height="16" rx="1" />
-                                    </svg>
-                                    <span className="text-xs font-medium">Pause</span>
-                                    <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-                                </>
-                            ) : (
-                                <>
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M8 5v14l11-7z" />
-                                    </svg>
-                                    <span className="text-xs font-medium">
-                                        {isAutoPlayPaused ? 'Resume' : 'Auto-Play'}
-                                    </span>
-                                </>
-                            )}
-                        </button>
-                    )}
-
-                    {/* Auto-Play Count Indicator */}
-                    {isAutoPlaying && autoplayCount !== undefined && maxAutoplayCount !== undefined && (
-                        <>
-                            <div className="w-px h-6 bg-white/10" />
-                            <div className="relative group/counter">
-                                <div className="px-2 py-1 text-[10px] font-mono font-medium text-gray-400 bg-white/5 rounded-md border border-white/5 cursor-help">
-                                    {autoplayCount}/{maxAutoplayCount}
-                                </div>
-                                {/* Hover Tooltip */}
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/90 border border-white/10 rounded-md text-[10px] text-gray-300 font-medium opacity-0 group-hover/counter:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap shadow-xl z-50">
-                                    after {maxAutoplayCount - autoplayCount} messages auto-play will pause
-                                </div>
-                            </div>
-                        </>
-                    )}
+    const renderCollapsed = () => (
+        <div className={`relative w-full max-w-2xl mx-auto group`}>
+            <div className="flex items-center justify-center gap-2 bg-[#1E1E1F] border border-white/10 rounded-full px-4 py-2">
+                {/* Context Text - Clickable to Edit */}
+                <div
+                    onClick={() => {
+                        setIsCollapsed(false);
+                        setInput(submittedText);
+                    }}
+                    className="flex items-center gap-3 flex-1 cursor-pointer hover:bg-white/5 rounded-full px-2 py-1 transition-all min-w-0"
+                >
+                    <SparklesIcon className="w-4 h-4 text-purple-400 shrink-0" />
+                    <span className="text-gray-300 text-xs md:text-sm font-light truncate">
+                        {submittedText}
+                    </span>
+                    <span className="text-[10px] md:text-xs text-gray-500 bg-white/5 px-2 py-1 rounded-md hover:bg-white/10 transition-colors shrink-0">
+                        Edit
+                    </span>
                 </div>
-            </div>
-        );
-    }
 
-    // Expanded View
-    return (
+                {/* Divider */}
+                <div className="w-px h-6 bg-white/10" />
+
+                {/* Auto-Play Button */}
+                {onAutoPlayToggle && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onAutoPlayToggle();
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${isAutoPlaying && !isAutoPlayPaused
+                            ? 'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                            }`}
+                    >
+                        {isAutoPlaying && !isAutoPlayPaused ? (
+                            <>
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <rect x="6" y="4" width="4" height="16" rx="1" />
+                                    <rect x="14" y="4" width="4" height="16" rx="1" />
+                                </svg>
+                                <span className="text-xs font-medium">Pause</span>
+                                <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
+                            </>
+                        ) : (
+                            <>
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                                <span className="text-xs font-medium">
+                                    {isAutoPlayPaused ? 'Resume' : 'Auto-Play'}
+                                </span>
+                            </>
+                        )}
+                    </button>
+                )}
+
+                {/* Auto-Play Count Indicator */}
+                {isAutoPlaying && autoplayCount !== undefined && maxAutoplayCount !== undefined && (
+                    <>
+                        <div className="w-px h-6 bg-white/10" />
+                        <div className="relative group/counter">
+                            <div className="px-2 py-1 text-[10px] font-mono font-medium text-gray-400 bg-white/5 rounded-md border border-white/5 cursor-help">
+                                {autoplayCount}/{maxAutoplayCount}
+                            </div>
+                            {/* Hover Tooltip */}
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/90 border border-white/10 rounded-md text-[10px] text-gray-300 font-medium opacity-0 group-hover/counter:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap shadow-xl z-50">
+                                after {maxAutoplayCount - autoplayCount} messages auto-play will pause
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+
+    const renderExpanded = () => (
         <form
             onSubmit={handleSubmit}
-            className={`relative w-full mx-auto group ${className || ''}`}
+            className={`relative w-full max-w-3xl mx-auto group`}
         >
             {/* Ambient Glow */}
             <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
@@ -477,5 +477,24 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                 </div>
             )}
         </form>
+    );
+
+    return (
+        <div className={`w-full flex items-center justify-between gap-4 md:gap-8 ${className || ''}`}>
+            {/* Left Slot: Brand */}
+            <div className="shrink-0">
+                {brandContent}
+            </div>
+
+            {/* Center: Input */}
+            <div className="flex-1 min-w-0 flex justify-center w-full">
+                {isCollapsed ? renderCollapsed() : renderExpanded()}
+            </div>
+
+            {/* Right Slot: Actions */}
+            <div className="shrink-0">
+                {rightContent}
+            </div>
+        </div>
     );
 };

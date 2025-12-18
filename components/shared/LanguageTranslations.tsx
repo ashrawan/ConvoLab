@@ -100,67 +100,68 @@ export default function LanguageTranslations({
                         const isPlaying = currentlyPlayingKey === translationKey;
 
                         return (
-                            <div key={lang} className={`flex items-center gap-3 p-2 rounded-lg transition-all ${isPlaying
-                                ? 'bg-violet-500/10 border border-violet-500/20'
-                                : 'hover:bg-white/5 border border-transparent'
+                            <div key={lang} className={`p-2 rounded-lg transition-all ${isPlaying
+                                ? 'bg-violet-500/10 border border-violet-500/20 flex flex-col gap-2'
+                                : 'hover:bg-white/5 border border-transparent flex items-center gap-3'
                                 }`}>
 
-                                {/* Language Badge */}
-                                <span className={`text-xs px-2 py-1 rounded font-mono min-w-[40px] text-center transition-all shrink-0 ${isPlaying
-                                    ? 'bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/50'
-                                    : (isPrimary && !excludePrimary)
-                                        ? 'bg-emerald-500/20 text-emerald-300'
-                                        : 'bg-white/10 text-gray-400'
-                                    }`}>
-                                    {lang.toUpperCase()}
-                                </span>
+                                {/* Header Layout when playing (Badge + Status + Button) */}
+                                <div className={`flex items-center ${isPlaying ? 'justify-between w-full' : 'gap-3 shrink-0'}`}>
+                                    <div className={`flex items-center ${isPlaying ? 'gap-3' : ''}`}>
+                                        {/* Language Badge */}
+                                        <span className={`text-xs px-2 py-1 rounded font-mono min-w-[40px] text-center transition-all shrink-0 ${isPlaying
+                                            ? 'bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/50'
+                                            : (isPrimary && !excludePrimary)
+                                                ? 'bg-emerald-500/20 text-emerald-300'
+                                                : 'bg-white/10 text-gray-400'
+                                            }`}>
+                                            {lang.toUpperCase()}
+                                        </span>
+
+                                        {/* Speaking Indicator & Wave (Only visible here when playing) */}
+                                        {isPlaying && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-violet-400 font-medium uppercase tracking-wide shrink-0">Speaking...</span>
+                                                <AudioWave />
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Stop Button (Only visible here when playing) */}
+                                    {isPlaying && text && (
+                                        <button
+                                            onClick={() => onStopAudio && onStopAudio()}
+                                            className="p-2 rounded-full bg-violet-500 text-white hover:bg-violet-600 shadow-md shrink-0 transition-all"
+                                            title="Stop"
+                                        >
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
 
                                 {/* Text Content */}
-                                <div className={`flex-1 text-sm leading-relaxed transition-all min-w-0 ${isPlaying ? 'text-violet-200' : 'text-gray-300'}`}>
+                                <div className={`text-sm leading-relaxed transition-all min-w-0 ${isPlaying ? 'text-violet-200 pl-1' : 'flex-1 text-gray-300'}`}>
                                     {!isPrimary && isTranslating ? (
                                         <span className="text-gray-500 italic">Translating...</span>
                                     ) : text ? (
-                                        <div className="flex items-center gap-2">
-                                            {/* Speaking indicator inline with text */}
-                                            {isPlaying && (
-                                                <>
-                                                    <span className="text-xs text-violet-400 font-medium uppercase tracking-wide shrink-0">Speaking...</span>
-                                                    <AudioWave />
-                                                </>
-                                            )}
-                                            <span className={`${isPlaying ? 'truncate' : ''}`}>{text}</span>
-                                        </div>
+                                        <span className={`${isPlaying ? 'whitespace-pre-wrap block' : 'truncate block'}`}>{text}</span>
                                     ) : (
                                         <span className="text-gray-600">—</span>
                                     )}
                                 </div>
 
-                                {/* Play/Stop Button */}
-                                {text && (
+                                {/* Play Button (Only visible here when NOT playing) */}
+                                {!isPlaying && text && (
                                     <button
-                                        onClick={() => {
-                                            if (isPlaying && onStopAudio) {
-                                                onStopAudio();
-                                            } else {
-                                                // Pass the unique key for this translation item
-                                                onPlayAudio(text, getSpeechLang(lang), translationKey);
-                                            }
-                                        }}
-                                        className={`p-2 rounded-full transition-all shrink-0 ${isPlaying
-                                            ? 'bg-violet-500 text-white hover:bg-violet-600 shadow-md'
-                                            : 'text-gray-500 hover:text-white hover:bg-white/10'
-                                            }`}
-                                        title={isPlaying ? "Stop" : `Play in ${lang}`}
+                                        onClick={() => onPlayAudio(text, getSpeechLang(lang), translationKey)}
+                                        className="p-2 rounded-full text-gray-500 hover:text-white hover:bg-white/10 shrink-0 transition-all"
+                                        title={`Play in ${lang}`}
                                     >
-                                        {isPlaying ? (
-                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                                <rect x="6" y="6" width="12" height="12" rx="2" />
-                                            </svg>
-                                        ) : (
-                                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                <path d="M8 5v14l11-7z" />
-                                            </svg>
-                                        )}
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z" />
+                                        </svg>
                                     </button>
                                 )}
                             </div>

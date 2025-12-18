@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import ContextInput from '../input/ContextInput';
 import LanguageTranslations from '../shared/LanguageTranslations';
 import ConversationSuggestions from '../shared/ConversationSuggestions';
@@ -53,6 +53,14 @@ interface PartyBPanelProps {
     // Video
     videoActive: boolean;
     videoRef: React.RefObject<HTMLVideoElement | null>;
+
+    // Collapsible Props
+    isSparksCollapsed?: boolean;
+    onToggleSparks?: () => void;
+
+    // Translations Collapsible
+    isTranslationsCollapsed?: boolean;
+    onToggleTranslations?: () => void;
 }
 
 export default function PartyBPanel({
@@ -75,7 +83,11 @@ export default function PartyBPanel({
     onSelectSuggestion,
     images,
     videoActive,
-    videoRef
+    videoRef,
+    isSparksCollapsed = true,
+    onToggleSparks,
+    isTranslationsCollapsed = true,
+    onToggleTranslations
 }: PartyBPanelProps) {
     // Check if the main response is playing (key='response')
     const isPlayingMain = currentlyPlayingKey === 'response';
@@ -87,6 +99,7 @@ export default function PartyBPanel({
     const topSectionRef = useRef<HTMLDivElement>(null);
     const [topSectionHeight, setTopSectionHeight] = useState<number | null>(null);
     const [translationsHeight, setTranslationsHeight] = useState<number>(120); // Default 120px
+    // Internal state removed in favor of props control
 
     const handleResize = useCallback((delta: number) => {
         setTopSectionHeight(prev => {
@@ -128,21 +141,21 @@ export default function PartyBPanel({
             {/* Top Section - Response + Translations (Resizable) */}
             <div
                 ref={topSectionRef}
-                className="border-b border-white/5 flex flex-col overflow-hidden"
-                style={{ height: topSectionHeight ?? '60%' }}
+                className={`border-b border-white/5 flex flex-col overflow-hidden ${isSparksCollapsed ? 'flex-1' : ''}`}
+                style={isSparksCollapsed ? undefined : { height: topSectionHeight ?? '60%' }}
             >
                 {/* Response Area */}
                 <div className="flex-1 relative p-6 overflow-y-auto custom-scrollbar min-h-0">
                     {/* Speaking/Reading indicator - Top */}
                     {showActiveState && response && (
-                        <div className="flex items-center gap-2 mb-3">
-                            <span className={`text-xs uppercase tracking-wide font-medium ${isReading ? 'text-emerald-400' : 'text-violet-400'}`}>
+                        <div className="flex items-center gap-2 mb-2 opacity-80">
+                            <span className={`text-[10px] uppercase tracking-wider font-bold ${isReading ? 'text-emerald-400' : 'text-violet-400'}`}>
                                 {isReading ? 'Reading...' : 'Speaking...'}
                             </span>
-                            <span className="flex gap-0.5 items-end h-3">
-                                <span className={`w-0.5 h-1.5 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                <span className={`w-0.5 h-3 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                <span className={`w-0.5 h-2 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                            <span className="flex gap-0.5 items-end h-2.5">
+                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                <span className={`w-0.5 h-2.5 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
                             </span>
                         </div>
                     )}
@@ -204,69 +217,91 @@ export default function PartyBPanel({
                 </div>
 
                 {/* Translations Label + Resize Handle */}
-                <div className="px-3 py-1 shrink-0 border-t border-white/5">
-                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Translations</span>
-                </div>
-                <ResizableDivider onResize={handleTranslationsResize} className="shrink-0" />
-
-                {/* Language Translations - Resizable height */}
-                <div
-                    className="overflow-y-auto shrink-0"
-                    style={{ height: translationsHeight }}
+                <button
+                    onClick={onToggleTranslations}
+                    className="w-full px-3 py-1 shrink-0 border-t border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
                 >
-                    <LanguageTranslations
-                        inputText={response}
-                        languages={languages}
-                        translations={translations}
-                        isTranslating={isTranslating}
-                        onPlayAudio={onPlayAudio}
-                        onStopAudio={onStopAudio}
-                        currentlyPlayingKey={currentlyPlayingKey}
-                        showLastMessage={false}
-                        hideSelector={true}
-                        excludePrimary={true}
-                    />
-                </div>
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Translations</span>
+                    <svg className={`w-3 h-3 text-gray-500 transition-transform ${isTranslationsCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                {!isTranslationsCollapsed && (
+                    <>
+                        <ResizableDivider onResize={handleTranslationsResize} className="shrink-0" />
+
+                        {/* Language Translations - Resizable height */}
+                        <div
+                            className="overflow-y-auto shrink-0"
+                            style={{ height: translationsHeight }}
+                        >
+                            <LanguageTranslations
+                                inputText={response}
+                                languages={languages}
+                                translations={translations}
+                                isTranslating={isTranslating}
+                                onPlayAudio={onPlayAudio}
+                                onStopAudio={onStopAudio}
+                                currentlyPlayingKey={currentlyPlayingKey}
+                                showLastMessage={false}
+                                hideSelector={true}
+                                excludePrimary={true}
+                            />
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Conversation Sparks Label + Resize Handle */}
-            <div className="px-4 py-2 border-t border-white/5">
+            <button
+                onClick={onToggleSparks}
+                className="w-full px-4 py-2 border-t border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
+            >
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Conversation Sparks</h3>
-            </div>
-            <ResizableDivider onResize={handleResize} />
+                <svg className={`w-3 h-3 text-gray-400 transition-transform ${isSparksCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
 
-            {/* Conversation Suggestions - Takes remaining space (aligns with Suggested Phrases) */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            {!isSparksCollapsed && (
+                <>
+                    <ResizableDivider onResize={handleResize} />
 
-                <div className="flex-1 overflow-y-auto p-4">
-                    <ConversationSuggestions
-                        suggestions={suggestions}
-                        isLoading={isLoadingSuggestions}
-                        hasResponse={!!response}
-                        onSelectSuggestion={onSelectSuggestion}
-                        onPlayAudio={(text, lang) => onPlayAudio(text, lang, `suggestion-${lang}`)}
-                    />
-                </div>
+                    {/* Conversation Suggestions - Takes remaining space (aligns with Suggested Phrases) */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
 
-                {/* Image Visualization */}
-                {images.length > 0 && (
-                    <div className="border-t border-white/10 p-4">
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Visual Context</div>
-                        <div className="flex gap-3">
-                            {images.map((img, idx) => (
-                                <div key={idx} className="relative w-40 h-28 rounded-lg overflow-hidden border border-white/10">
-                                    <img
-                                        src={img}
-                                        alt="Context visual"
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                </div>
-                            ))}
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <ConversationSuggestions
+                                suggestions={suggestions}
+                                isLoading={isLoadingSuggestions}
+                                hasResponse={!!response}
+                                onSelectSuggestion={onSelectSuggestion}
+                                onPlayAudio={(text, lang) => onPlayAudio(text, lang, `suggestion-${lang}`)}
+                            />
                         </div>
+
+                        {/* Image Visualization */}
+                        {images.length > 0 && (
+                            <div className="border-t border-white/10 p-4">
+                                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Visual Context</div>
+                                <div className="flex gap-3">
+                                    {images.map((img, idx) => (
+                                        <div key={idx} className="relative w-40 h-28 rounded-lg overflow-hidden border border-white/10">
+                                            <img
+                                                src={img}
+                                                alt="Context visual"
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </>
+            )}
         </div>
     );
 }

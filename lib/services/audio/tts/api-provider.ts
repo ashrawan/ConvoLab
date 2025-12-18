@@ -12,21 +12,39 @@ export class APITTSProvider implements TTSProvider {
     name = 'api';
     private currentRequestId: number = 0;
     private activeOnEnd: (() => void) | null = null;
-    private audioElement: HTMLAudioElement | null = null;
+
+    // Singleton audio element to support mobile auto-play policies
+    private static audioElement: HTMLAudioElement | null = null;
+
+    constructor() {
+        if (typeof window !== 'undefined' && !APITTSProvider.audioElement) {
+            APITTSProvider.audioElement = new Audio();
+        }
+    }
 
     isAvailable(): boolean {
         return typeof window !== 'undefined' && 'Audio' in window;
+    }
+
+    /**
+     * Warmup the audio engine by playing a silent sound/interacting with the element.
+     * Call this on a user interaction event (click/touch).
+     */
+    warmup(): void {
+        // Warmup removed as per user request
     }
 
     cancel(): void {
         this.currentRequestId++;
 
         // Stop any playing audio
-        if (this.audioElement) {
-            this.audioElement.pause();
-            this.audioElement.onended = null;
-            this.audioElement.onerror = null;
-            this.audioElement = null;
+        const audio = APITTSProvider.audioElement;
+        if (audio) {
+            audio.pause();
+            audio.onplay = null;
+            audio.onended = null;
+            audio.onerror = null;
+            // Don't nullify the static element, just stop it
         }
 
         // CRITICAL: Always trigger the pending completion callback if there is one
@@ -89,9 +107,13 @@ export class APITTSProvider implements TTSProvider {
 
             const audioUrl = URL.createObjectURL(audioBlob);
 
-            // Create and play audio element
-            const audio = new Audio(audioUrl);
-            this.audioElement = audio;
+            // Use the singleton audio element
+            const audio = APITTSProvider.audioElement;
+            if (!audio) {
+                throw new Error('Audio element not initialized');
+            }
+
+            audio.src = audioUrl;
 
             audio.onplay = () => {
                 if (requestId === this.currentRequestId) {
@@ -105,7 +127,7 @@ export class APITTSProvider implements TTSProvider {
                 URL.revokeObjectURL(audioUrl);
 
                 if (requestId === this.currentRequestId) {
-                    this.audioElement = null;
+                    // Don't nullify static element
                     this.activeOnEnd = null;
                     if (options.onEnd) options.onEnd();
                 }
@@ -116,7 +138,7 @@ export class APITTSProvider implements TTSProvider {
                 URL.revokeObjectURL(audioUrl);
 
                 if (requestId === this.currentRequestId) {
-                    this.audioElement = null;
+                    // Don't nullify static element
                     this.activeOnEnd = null;
                     if (options.onEnd) options.onEnd();
                 }

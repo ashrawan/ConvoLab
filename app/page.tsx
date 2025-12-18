@@ -5,6 +5,7 @@ import PartyAPanel from '@/components/party-a/PartyAPanel';
 import PartyBPanel from '@/components/party-b/PartyBPanel';
 import { TTSSettings } from '@/components/shared/TTSSettings';
 import { ConvoContextInput } from '@/components/shared/ConvoContextInput';
+import { Footer } from '@/components/shared/Footer';
 import { usePartyA } from '@/hooks/usePartyA';
 import { usePartyB } from '@/hooks/usePartyB';
 import { useAudioController } from '@/hooks/useAudioController';
@@ -124,6 +125,24 @@ export default function Home() {
     setAutoPlayActive(autoPlayMode.state.isRunning);
   }, [autoPlayMode.state.isRunning]);
 
+  // 7. Global Warmup Listener
+  useEffect(() => {
+    const handleWarmup = () => {
+      // Unlock audio engines on first interaction
+      autoPlayMode.actions.warmup();
+    };
+
+    window.addEventListener('click', handleWarmup, { once: true });
+    window.addEventListener('touchstart', handleWarmup, { once: true });
+    window.addEventListener('keydown', handleWarmup, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handleWarmup);
+      window.removeEventListener('touchstart', handleWarmup);
+      window.removeEventListener('keydown', handleWarmup);
+    };
+  }, [autoPlayMode.actions.warmup]);
+
   // Determine highlight target and indices
   const highlightTarget = autoPlayMode.state.highlightTarget;
   const highlightIndex = autoPlayMode.state.highlightedWordIndex;
@@ -167,44 +186,49 @@ export default function Home() {
     <main className="h-screen bg-[#0f0f10] text-white flex flex-col overflow-y-auto lg:overflow-hidden font-sans selection:bg-purple-500/30">
       {/* Minimal Header */}
       {/* Minimal Header */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-4 lg:px-8 py-4 bg-[#0f0f10]/80 backdrop-blur-md border-b border-white/5">
-        <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
-          <img src="/icon.svg" alt="ConvoLab Logo" className="w-6 h-6 rounded-md shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
-          <h1 className="text-base font-semibold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-            Convo Lab
-          </h1>
-        </div>
+      {/* Unified Header & Context Input */}
+      <div className="sticky top-0 z-50 pt-4 pb-4 px-4 md:px-8 bg-[#0f0f10]/95 backdrop-blur-xl border-b border-white/5">
+        <ConvoContextInput
+          onContextSet={handleContextSet}
+          className="shadow-2xl shadow-purple-900/10"
+          isAutoPlaying={autoPlayMode.state.isRunning}
+          isAutoPlayPaused={autoPlayMode.state.isPaused}
+          onAutoPlayToggle={() => {
+            autoPlayMode.actions.warmup();
+            autoPlayMode.actions.toggle();
+          }}
+          autoplayCount={autoPlayMode.state.count}
+          maxAutoplayCount={autoPlayMode.state.maxCount}
 
-        <div className="flex items-center gap-4">
-          <TTSSettings
-            pauseMicOnAudio={pauseMicOnAudio}
-            onPauseMicChange={setPauseMicOnAudio}
-            autoPlay={autoPlay}
-            onAutoPlayChange={setAutoPlay}
-            readingSpeed={readingSpeed}
-            onReadingSpeedChange={setReadingSpeed}
-            showTypingEffect={showTypingEffect}
-            onShowTypingEffectChange={setShowTypingEffect}
-          />
-          <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer">
-            <span className="text-sm opacity-70">👤</span>
-          </div>
-        </div>
-      </header>
+          // Left: Brand
+          brandContent={
+            <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity hidden md:flex">
+              <img src="/icon.svg" alt="ConvoLab Logo" className="w-6 h-6 rounded-md shadow-[0_0_15px_rgba(168,85,247,0.4)]" />
+              <h1 className="text-base font-semibold tracking-wider uppercase bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
+                Convo Lab
+              </h1>
+            </div>
+          }
 
-      {/* Hero Section with Context Input */}
-      <div className="relative pt-6 pb-6 px-4 md:px-6 flex flex-col items-center justify-center bg-gradient-to-b from-[#131313] to-[#0f0f10] border-b border-white/5">
-        <div className="w-full max-w-3xl relative z-10">
-          <ConvoContextInput
-            onContextSet={handleContextSet}
-            className="shadow-2xl shadow-purple-900/10"
-            isAutoPlaying={autoPlayMode.state.isRunning}
-            isAutoPlayPaused={autoPlayMode.state.isPaused}
-            onAutoPlayToggle={autoPlayMode.actions.toggle}
-            autoplayCount={autoPlayMode.state.count}
-            maxAutoplayCount={autoPlayMode.state.maxCount}
-          />
-        </div>
+          // Right: Settings
+          rightContent={
+            <div className="flex items-center gap-4">
+              <TTSSettings
+                pauseMicOnAudio={pauseMicOnAudio}
+                onPauseMicChange={setPauseMicOnAudio}
+                autoPlay={autoPlay}
+                onAutoPlayChange={setAutoPlay}
+                readingSpeed={readingSpeed}
+                onReadingSpeedChange={setReadingSpeed}
+                showTypingEffect={showTypingEffect}
+                onShowTypingEffectChange={setShowTypingEffect}
+              />
+              <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors cursor-pointer">
+                <span className="text-sm opacity-70">👤</span>
+              </div>
+            </div>
+          }
+        />
       </div>
 
       {/* Main Content - Two Column Split (Always Side-by-Side) */}
@@ -221,20 +245,36 @@ export default function Home() {
           highlightedWordIndex={partyAHighlightIndex}
           input={partyA.state.input}
           onInputChange={partyA.actions.handleInput}
-          onSubmit={partyA.actions.handleManualSubmit}
+          onSubmit={() => {
+            autoPlayMode.actions.warmup();
+            partyA.actions.handleManualSubmit();
+          }}
           audioActive={partyA.state.audioActive}
-          onToggleAudio={() => partyA.state.audioActive ? partyA.actions.stopAudio() : partyA.actions.startAudio()}
+          onToggleAudio={() => {
+            autoPlayMode.actions.warmup();
+            if (partyA.state.audioActive) {
+              partyA.actions.stopAudio();
+            } else {
+              partyA.actions.startAudio();
+            }
+          }}
           audioTranscript={partyA.state.audioTranscript}
           lastSubmission={partyA.state.submission}
           buildMode={partyA.state.buildMode}
           onBuildModeToggle={() => partyA.actions.setBuildMode(!partyA.state.buildMode)}
           predictions={partyA.state.predictions}
           isLoadingPredictions={partyA.state.isLoading}
-          onSelectPhrase={partyA.actions.handleWordSelect}
+          onSelectPhrase={(phrase) => {
+            autoPlayMode.actions.warmup();
+            partyA.actions.handleWordSelect(phrase);
+          }}
           translations={partyA.state.translations}
           lastSentTranslations={partyA.state.lastSentTranslations}
           isTranslating={partyA.state.isTranslating}
-          onPlayAudio={partyA.actions.playAudio}
+          onPlayAudio={(text, lang, key) => {
+            autoPlayMode.actions.warmup();
+            partyA.actions.playAudio(text, lang, key);
+          }}
           onStopAudio={() => {
             partyA.actions.stopAllAudio();
             if (autoPlayMode.state.isRunning) autoPlayMode.actions.stop();
@@ -243,6 +283,10 @@ export default function Home() {
           videoActive={partyA.state.videoActive}
           onVideoToggle={partyA.actions.toggleVideo}
           videoRef={partyA.state.videoRef}
+          isPhrasesCollapsed={partyA.state.isPhrasesCollapsed}
+          onTogglePhrases={() => partyA.actions.setIsPhrasesCollapsed(!partyA.state.isPhrasesCollapsed)}
+          isTranslationsCollapsed={partyA.state.isTranslationsCollapsed}
+          onToggleTranslations={() => partyA.actions.setIsTranslationsCollapsed(!partyA.state.isTranslationsCollapsed)}
         />
 
         {/* PARTY B (AI) - RIGHT SIDE */}
@@ -259,7 +303,10 @@ export default function Home() {
           isGenerating={partyB.state.isGenerating}
           translations={partyB.state.translations}
           isTranslating={partyB.state.isTranslating}
-          onPlayAudio={partyB.actions.playAudio}
+          onPlayAudio={(text, lang, key) => {
+            autoPlayMode.actions.warmup();
+            partyB.actions.playAudio(text, lang, key);
+          }}
           onStopAudio={() => {
             partyB.actions.stopAllAudio();
             if (autoPlayMode.state.isRunning) autoPlayMode.actions.stop();
@@ -267,13 +314,19 @@ export default function Home() {
           suggestions={partyB.state.conversationSuggestions}
           isLoadingSuggestions={partyB.state.suggestionsLoading}
           onSelectSuggestion={(phrase) => {
+            autoPlayMode.actions.warmup();
             partyA.actions.submitPhrase(phrase);
           }}
           images={partyB.state.images}
           videoActive={partyB.state.videoActive}
           videoRef={partyB.state.videoRef}
+          isSparksCollapsed={partyB.state.isSparksCollapsed}
+          onToggleSparks={() => partyB.actions.setIsSparksCollapsed(!partyB.state.isSparksCollapsed)}
+          isTranslationsCollapsed={partyB.state.isTranslationsCollapsed}
+          onToggleTranslations={() => partyB.actions.setIsTranslationsCollapsed(!partyB.state.isTranslationsCollapsed)}
         />
       </div>
+      <Footer />
     </main>
   );
 }

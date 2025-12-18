@@ -31,6 +31,9 @@ export interface TTSProvider {
 
     /** Check if provider is available/supported */
     isAvailable(): boolean;
+
+    /** Warmup the audio engine (critical for mobile auto-play) */
+    warmup?(): void;
 }
 
 export interface STTOptions {

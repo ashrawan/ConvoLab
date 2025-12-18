@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import ContextInput from '../input/ContextInput';
 import TextInputPanel from '../input/TextInputPanel';
 import LanguageTranslations from '../shared/LanguageTranslations';
@@ -53,6 +53,14 @@ interface PartyAPanelProps {
     videoActive: boolean;
     onVideoToggle: () => void;
     videoRef: React.RefObject<HTMLVideoElement | null>;
+
+    // Collapsible Props
+    isPhrasesCollapsed?: boolean;
+    onTogglePhrases?: () => void;
+
+    // Translations Collapsible
+    isTranslationsCollapsed?: boolean;
+    onToggleTranslations?: () => void;
 }
 
 export default function PartyAPanel({
@@ -84,13 +92,18 @@ export default function PartyAPanel({
     videoActive,
     onVideoToggle,
     videoRef,
-    lastSubmission
+    lastSubmission,
+    isPhrasesCollapsed = true,
+    onTogglePhrases,
+    isTranslationsCollapsed = true,
+    onToggleTranslations
 }: PartyAPanelProps) {
     // Resizable top section height (in pixels, will be calculated from container)
     const containerRef = useRef<HTMLDivElement>(null);
     const topSectionRef = useRef<HTMLDivElement>(null);
     const [topSectionHeight, setTopSectionHeight] = useState<number | null>(null);
     const [translationsHeight, setTranslationsHeight] = useState<number>(120); // Default 120px
+    // Internal state removed in favor of props control
 
     const handleResize = useCallback((delta: number) => {
         setTopSectionHeight(prev => {
@@ -134,8 +147,8 @@ export default function PartyAPanel({
             {/* Top Section - Text Input + Translations (Resizable) */}
             <div
                 ref={topSectionRef}
-                className="border-b border-white/5 flex flex-col overflow-hidden"
-                style={{ height: topSectionHeight ?? '60%' }}
+                className={`border-b border-white/5 flex flex-col overflow-hidden ${isPhrasesCollapsed ? 'flex-1' : ''}`}
+                style={isPhrasesCollapsed ? undefined : { height: topSectionHeight ?? '60%' }}
             >
                 {/* Text Input + Video */}
                 <div className="flex flex-1 min-h-0">
@@ -189,65 +202,87 @@ export default function PartyAPanel({
                 </div>
 
                 {/* Translations Label + Resize Handle */}
-                <div className="px-3 py-1 shrink-0 border-t border-white/5">
-                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Translations</span>
-                </div>
-                <ResizableDivider onResize={handleTranslationsResize} className="shrink-0" />
-
-                {/* Language Translations - Resizable height */}
-                <div
-                    className="overflow-y-auto shrink-0"
-                    style={{ height: translationsHeight }}
+                <button
+                    onClick={onToggleTranslations}
+                    className="w-full px-3 py-1 shrink-0 border-t border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
                 >
-                    <LanguageTranslations
-                        inputText={input}
-                        languages={languages}
-                        translations={translations}
-                        isTranslating={isTranslating}
-                        onPlayAudio={onPlayAudio}
-                        onStopAudio={onStopAudio}
-                        currentlyPlayingKey={currentlyPlayingKey}
-                        hideSelector={true}
-                        showLastMessage={false}
-                    />
-                </div>
+                    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Translations</span>
+                    <svg className={`w-3 h-3 text-gray-500 transition-transform ${isTranslationsCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+
+                {!isTranslationsCollapsed && (
+                    <>
+                        <ResizableDivider onResize={handleTranslationsResize} className="shrink-0" />
+
+                        {/* Language Translations - Resizable height */}
+                        <div
+                            className="overflow-y-auto shrink-0"
+                            style={{ height: translationsHeight }}
+                        >
+                            <LanguageTranslations
+                                inputText={input}
+                                languages={languages}
+                                translations={translations}
+                                isTranslating={isTranslating}
+                                onPlayAudio={onPlayAudio}
+                                onStopAudio={onStopAudio}
+                                currentlyPlayingKey={currentlyPlayingKey}
+                                hideSelector={true}
+                                showLastMessage={false}
+                            />
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Suggested Phrases Label + Resize Handle */}
-            <div className="px-4 py-2 border-t border-white/5">
+            <button
+                onClick={onTogglePhrases}
+                className="w-full px-4 py-2 border-t border-white/5 flex items-center justify-between hover:bg-white/5 transition-colors"
+            >
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">Suggested Phrases</h3>
-            </div>
-            <ResizableDivider onResize={handleResize} />
+                <svg className={`w-3 h-3 text-gray-400 transition-transform ${isPhrasesCollapsed ? '-rotate-90' : 'rotate-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
 
-            {/* Phrase Predictions */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-4">
-                    <PhraseSuggestions
-                        predictions={predictions}
-                        isLoading={isLoadingPredictions}
-                        onSelectPhrase={onSelectPhrase}
-                    />
-                </div>
+            {!isPhrasesCollapsed && (
+                <>
+                    <ResizableDivider onResize={handleResize} />
 
-                {/* Image Visualization */}
-                {images.length > 0 && (
-                    <div className="mt-4">
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Visual Context</div>
-                        <div className="flex gap-3">
-                            {images.map((img, idx) => (
-                                <div key={idx} className="relative w-40 h-28 rounded-lg overflow-hidden border border-white/10">
-                                    <img
-                                        src={img}
-                                        alt="Context visual"
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                </div>
-                            ))}
+                    {/* Phrase Predictions */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <div className="flex-1 overflow-y-auto p-4">
+                            <PhraseSuggestions
+                                predictions={predictions}
+                                isLoading={isLoadingPredictions}
+                                onSelectPhrase={onSelectPhrase}
+                            />
                         </div>
+
+                        {/* Image Visualization */}
+                        {images.length > 0 && (
+                            <div className="mt-4">
+                                <div className="text-xs text-gray-500 uppercase tracking-wide mb-2">Visual Context</div>
+                                <div className="flex gap-3">
+                                    {images.map((img, idx) => (
+                                        <div key={idx} className="relative w-40 h-28 rounded-lg overflow-hidden border border-white/10">
+                                            <img
+                                                src={img}
+                                                alt="Context visual"
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </>
+            )}
         </div>
     );
 }

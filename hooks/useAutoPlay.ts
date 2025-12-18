@@ -1,6 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import useSound from 'use-sound';
 import { getApiUrl } from '@/lib/config/api';
+import { ttsService } from '@/lib/services';
+
+
 
 const MAX_AUTOPLAY_COUNT = 5;
 
@@ -504,6 +507,20 @@ export function useAutoPlay({
         }
     }, [start, resume, pause]);
 
+    // Warmup audio engines (for mobile)
+    const warmup = useCallback(() => {
+        console.log('🔥 Warming up audio engines');
+        // 1. Unlock TTS
+        if (ttsService.warmup) {
+            ttsService.warmup();
+        }
+
+        // 2. Unlock typing SFX
+        // Playing and immediately stopping usually works
+        playTyping();
+        setTimeout(() => stopTyping(), 0);
+    }, [playTyping, stopTyping]);
+
     return {
         state: {
             ...state,
@@ -517,7 +534,8 @@ export function useAutoPlay({
             stop,
             toggle,
             addToHistory,
-            clearHistory
+            clearHistory,
+            warmup
         }
     };
 }

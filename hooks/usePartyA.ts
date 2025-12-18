@@ -24,6 +24,10 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
     // Changed: Track specific item being played (e.g., 'lastSent', 'translation-fr')
     const [currentlyPlayingKey, setCurrentlyPlayingKey] = useState<string | null>(null);
 
+    // Collapsible State (Phrases & Translations)
+    const [isPhrasesCollapsed, setIsPhrasesCollapsed] = useState(true); // Default Closed
+    const [isTranslationsCollapsed, setIsTranslationsCollapsed] = useState(true); // Default Closed
+
     // Mode
     const [buildMode, setBuildMode] = useState(true);
 
@@ -39,6 +43,8 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
     const autoPlayRef = useRef(autoPlay);
     const audioEnabledLanguagesRef = useRef(audioEnabledLanguages);
     const pauseMicOnAudioRef = useRef(pauseMicOnAudio);
+    const isPhrasesCollapsedRef = useRef(isPhrasesCollapsed);
+    const isTranslationsCollapsedRef = useRef(isTranslationsCollapsed);
     const debounceTimer = useRef<NodeJS.Timeout | null>(null);
     const submissionTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -49,6 +55,8 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
     useEffect(() => { autoPlayRef.current = autoPlay; }, [autoPlay]);
     useEffect(() => { audioEnabledLanguagesRef.current = audioEnabledLanguages; }, [audioEnabledLanguages]);
     useEffect(() => { pauseMicOnAudioRef.current = pauseMicOnAudio; }, [pauseMicOnAudio]);
+    useEffect(() => { isPhrasesCollapsedRef.current = isPhrasesCollapsed; }, [isPhrasesCollapsed]);
+    useEffect(() => { isTranslationsCollapsedRef.current = isTranslationsCollapsed; }, [isTranslationsCollapsed]);
 
     // ============================================================================
     // Input Handlers & Unified AI Updates
@@ -71,14 +79,20 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
             const targetLangs = currentLangs.slice(1);
 
             // Create promises array
-            const promises: Promise<any>[] = [
-                // 1. Predictions
-                getPhrasePredictions(text, sourceLang, sourceLang, 8)
-                    .catch(e => { console.error('Prediction error:', e); return []; })
-            ];
+            const promises: Promise<any>[] = [];
 
-            // 2. Translations (if needed)
-            if (targetLangs.length > 0) {
+            // 1. Predictions (Only if NOT collapsed)
+            if (!isPhrasesCollapsedRef.current) {
+                promises.push(
+                    getPhrasePredictions(text, sourceLang, sourceLang, 8)
+                        .catch(e => { console.error('Prediction error:', e); return []; })
+                );
+            } else {
+                promises.push(Promise.resolve([]));
+            }
+
+            // 2. Translations (Only if NOT collapsed AND has targets)
+            if (!isTranslationsCollapsedRef.current && targetLangs.length > 0) {
                 promises.push(
                     translationService.translateMultiple(text, sourceLang, targetLangs)
                         .catch(e => { console.error('Translation error:', e); return {}; })
@@ -91,7 +105,42 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
             const [preds, trans] = await Promise.all(promises);
 
             setPredictions(preds);
-            setTranslations(trans);
+            // Only update translations if we actually fetched something or if we want to clear them.
+            // If collapsed, 'trans' is {}, so we don't necessarily want to wipe existing translations if we just collapsed?
+            // User requirement: "expected it not to make the call... Only when open it will make, or when its collapse open it will make if it hasn't yet."
+            // If we collapse, we probably shouldn't clear the data, just hide it (UI side). But here we are setting state.
+            // If we setTranslations({}) when collapsed, when we open it back up, we MUST re-fetch.
+            // The logic below in useEffect triggers updateAI when opening, so it's fine to 'clear' or keep stable.
+            // However, keeping stable is better UX (no flicker).
+            // But if input changed while collapsed, we want proper state.
+            // Simpler approach: updateAI always sets the state to what it decided.
+            // If collapsed, it resolves {}, so we set {}. This means "no translations available".
+            // When we expand, we trigger updateAI, which sees !collapsed, fetches real trans, and updates state.
+            // BUT: if we already have translations and just collapse, do we lose them?
+            // Yes, with this logic we lose them in state.
+            // Is that okay? "collapase open it will make if it hasn't yet" implies caching?
+            // If I just typed "Hello", got trans, then collapsed. Then typed "Hello World". Trans is {}.
+            // Then expanded. It fetches for "Hello World". Correct.
+            // What if I typed "Hello", got trans, collapsed. Trans becomes {}.
+            // Expanded immediately. Input is still "Hello". It fetches again.
+            // This satisfies "make if it hasn't yet" (it hasn't for the current visual state).
+            // Optimization: if we wanted to keep them, we'd need to check if input changed.
+            // For now, let's stick to the simpler "fetch based on visibility" model.
+
+            // However, to avoid clearing previous valid translations when just typing in collapsed mode (which might be fine),
+            // let's follow the standard pattern: state reflects current reality.
+            if (!isTranslationsCollapsedRef.current) {
+                setTranslations(trans);
+            } else if (Object.keys(trans).length > 0) {
+                // Should not happen if we passed Promise.resolve({})
+                setTranslations(trans);
+            } else {
+                // If collapsed, we resolved {}.
+                // If we had translations before, do we want to keep them?
+                // Probably not relevant if hidden.
+                // Let's sets it to trans (empty) to be safe.
+                setTranslations(trans);
+            }
 
         } catch (error) {
             console.error('AI Update Failed:', error);
@@ -100,6 +149,30 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
             setIsTranslating(false);
         }
     }, []);
+
+    // Trigger update when opening Phrases section if there's input
+    useEffect(() => {
+        if (!isPhrasesCollapsed && input.trim()) {
+            updateAI(input, languages);
+        }
+    }, [isPhrasesCollapsed]);
+
+    // Trigger update when opening Translations section if there's input
+    useEffect(() => {
+        // Only fetch if NOT collapsed (opening) AND we have input AND we have target languages
+        if (!isTranslationsCollapsed && input.trim() && languages.length > 1) {
+            updateAI(input, languages);
+        }
+    }, [isTranslationsCollapsed]);
+
+    // Auto-expand/collapse translations based on language count
+    useEffect(() => {
+        if (languages.length > 1) {
+            setIsTranslationsCollapsed(false);
+        } else {
+            setIsTranslationsCollapsed(true);
+        }
+    }, [languages.length]);
 
     // Load Languages from Local Storage
     useEffect(() => {
@@ -370,9 +443,13 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
         else startVideo();
     };
 
-    const submitPhrase = useCallback(async (text: string) => {
-        if (!text) return;
+    const submitPhrase = useCallback(async (phrase: string) => {
+        if (!phrase) return;
 
+        // If in Build Mode (Instant Mode OFF), clicking a phrase should just append it to input
+
+
+        // Otherwise (Instant Mode ON), treat as full submission
         const sourceLang = languagesRef.current[0] || 'en';
         const targetLangs = languagesRef.current.slice(1);
 
@@ -381,7 +458,7 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
         // Fetch translations for the phrase immediately
         if (targetLangs.length > 0) {
             try {
-                phraseTranslations = await translationService.translateMultiple(text, sourceLang, targetLangs);
+                phraseTranslations = await translationService.translateMultiple(phrase, sourceLang, targetLangs);
                 setLastSentTranslations(phraseTranslations);
             } catch (e) {
                 console.error('Failed to translate phrase submission', e);
@@ -397,7 +474,7 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
             // Add primary language if enabled
             if (audioEnabledLanguages.includes(sourceLang)) {
                 queue.push({
-                    text: text,
+                    text: phrase,
                     lang: sourceLang,
                     onStart: () => setCurrentlyPlayingKey('lastSent'),
                     onEnd: () => setCurrentlyPlayingKey(prev => prev === 'lastSent' ? null : prev)
@@ -424,9 +501,9 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
         }
 
         // Trigger submission
-        setSubmission({ text, timestamp: Date.now() });
+        setSubmission({ text: phrase, timestamp: Date.now() });
         setInput('');
-    }, [autoPlay, audioEnabledLanguages]);
+    }, [autoPlay, audioEnabledLanguages, handleWordSelect]);
 
     // playAudio now takes a key to identify what's being played
     const playAudio = useCallback((text: string, lang: string, key: string) => {
@@ -458,11 +535,11 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
             context, languages, input, predictions, videoActive, audioActive,
             audioTranscript, isLoading: isLoadingPredictions, translations, lastSentTranslations, isTranslating, images,
             audioEnabledLanguages, currentlyPlayingKey, buildMode,
-            videoRef, submission
+            videoRef, submission, isPhrasesCollapsed, isTranslationsCollapsed
         },
         actions: {
             setContext, setLanguages: setLanguagesWithPersistence, setInput,
-            setAudioEnabledLanguages, setBuildMode,
+            setAudioEnabledLanguages, setBuildMode, setIsPhrasesCollapsed, setIsTranslationsCollapsed,
             handleInput, handleManualSubmit, handleWordSelect, submitPhrase,
             startAudio, stopAudio, stopAllAudio, toggleVideo, reset, playAudio
         }

@@ -81,22 +81,24 @@ export default function TextInputPanel({
                     }`}>
                     {/* Main last sent row */}
                     <div className="px-4 py-2 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-xs uppercase tracking-wide font-medium ${showActiveState ? (isReading ? 'text-emerald-400' : 'text-violet-400') : 'text-gray-500'}`}>
-                                    {showActiveState ? (isReading ? 'Reading...' : 'Speaking...') : 'Sent'}
-                                </span>
-                                {showActiveState && (
-                                    <span className="flex gap-0.5 items-end h-3">
-                                        <span className={`w-0.5 h-1.5 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                        <span className={`w-0.5 h-3 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
-                                        <span className={`w-0.5 h-2 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                        <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 flex-1 min-w-0 items-start">
+                            <div className="flex flex-row items-center md:flex-col md:items-start gap-2 md:gap-0.5 shrink-0 md:min-w-[60px]">
+                                <div className="flex items-center gap-1">
+                                    <span className={`text-[10px] uppercase tracking-wider font-bold ${showActiveState ? (isReading ? 'text-emerald-400' : 'text-violet-400') : 'text-gray-600'}`}>
+                                        {showActiveState ? (isReading ? 'Reading...' : 'Speaking...') : 'Sent'}
                                     </span>
-                                )}
+                                    {showActiveState && (
+                                        <span className="flex gap-0.5 items-end h-2">
+                                            <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                            <span className={`w-0.5 h-2 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                            <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                        </span>
+                                    )}
+                                </div>
+                                <span className={`text-[10px] px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono leading-none`}>
+                                    {(languages[0] || 'en').toUpperCase()}
+                                </span>
                             </div>
-                            <span className={`text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono shrink-0`}>
-                                {(languages[0] || 'en').toUpperCase()}
-                            </span>
                             <div className={`text-sm max-h-24 overflow-y-auto whitespace-pre-wrap break-words font-medium custom-scrollbar ${isAudioPlaying ? 'text-violet-200' : 'text-gray-300'}`}>
                                 {highlightedWordIndex !== undefined && highlightedWordIndex >= 0
                                     ? renderHighlightedText(lastSubmission.text, highlightedWordIndex)
@@ -162,44 +164,50 @@ export default function TextInputPanel({
                                     const isPlayingThis = currentlyPlayingKey === translationKey;
 
                                     return (
-                                        <div key={lang} className={`flex items-center gap-2 py-1 px-2 rounded transition-all ${isPlayingThis ? 'bg-violet-500/10' : 'hover:bg-white/5'}`}>
-                                            <span className={`text-xs px-1.5 py-0.5 rounded font-mono shrink-0 ${isPlayingThis ? 'bg-violet-500/20 text-violet-300' : 'bg-white/10 text-gray-400'}`}>
-                                                {lang.toUpperCase()}
-                                            </span>
-                                            {isPlayingThis && (
-                                                <span className="flex gap-0.5 items-end h-2.5 shrink-0">
-                                                    <span className="w-0.5 h-1 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
-                                                    <span className="w-0.5 h-2.5 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
-                                                    <span className="w-0.5 h-1.5 bg-violet-400 animate-[pulse_0.7s_infinite]"></span>
-                                                </span>
-                                            )}
-                                            <span className={`text-xs truncate flex-1 ${isPlayingThis ? 'text-violet-200' : 'text-gray-400'}`}>
-                                                {text}
-                                            </span>
-                                            {onPlayTranslationAudio && (
-                                                <button
-                                                    onClick={() => {
-                                                        if (isPlayingThis && onStopTTS) {
-                                                            onStopTTS();
-                                                        } else {
-                                                            onPlayTranslationAudio(text, lang, translationKey);
-                                                        }
-                                                    }}
-                                                    className={`p-1 rounded-full transition-all shrink-0 ${isPlayingThis
-                                                        ? 'bg-violet-500 text-white'
-                                                        : 'text-gray-500 hover:text-white hover:bg-white/10'
-                                                        }`}
-                                                    title={isPlayingThis ? "Stop" : `Play ${lang}`}
-                                                >
-                                                    {isPlayingThis ? (
+                                        <div key={lang} className={`py-1 px-2 rounded transition-all ${isPlayingThis ? 'bg-violet-500/10 flex flex-col gap-1.5' : 'hover:bg-white/5 flex items-center gap-2'}`}>
+                                            <div className={`flex items-center ${isPlayingThis ? 'justify-between w-full' : 'gap-2'}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-xs px-1.5 py-0.5 rounded font-mono shrink-0 ${isPlayingThis ? 'bg-violet-500/20 text-violet-300' : 'bg-white/10 text-gray-400'}`}>
+                                                        {lang.toUpperCase()}
+                                                    </span>
+                                                    {isPlayingThis && (
+                                                        <span className="flex gap-0.5 items-end h-2.5 shrink-0">
+                                                            <span className="w-0.5 h-1 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
+                                                            <span className="w-0.5 h-2.5 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
+                                                            <span className="w-0.5 h-1.5 bg-violet-400 animate-[pulse_0.7s_infinite]"></span>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {isPlayingThis && onPlayTranslationAudio && (
+                                                    <button
+                                                        onClick={() => {
+                                                            onStopTTS && onStopTTS();
+                                                        }}
+                                                        className="p-1 rounded-full bg-violet-500 text-white shrink-0 hover:bg-violet-600"
+                                                        title="Stop"
+                                                    >
                                                         <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
                                                             <rect x="6" y="6" width="12" height="12" rx="2" />
                                                         </svg>
-                                                    ) : (
-                                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                                                            <path d="M8 5v14l11-7z" />
-                                                        </svg>
-                                                    )}
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <span className={`text-xs ${isPlayingThis ? 'text-violet-200 whitespace-pre-wrap pl-1' : 'flex-1 text-gray-400 truncate'}`}>
+                                                {text}
+                                            </span>
+
+                                            {!isPlayingThis && onPlayTranslationAudio && (
+                                                <button
+                                                    onClick={() => {
+                                                        onPlayTranslationAudio(text, lang, translationKey);
+                                                    }}
+                                                    className="p-1 rounded-full text-gray-500 hover:text-white hover:bg-white/10 shrink-0 transition-all"
+                                                    title={`Play ${lang}`}
+                                                >
+                                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M8 5v14l11-7z" />
+                                                    </svg>
                                                 </button>
                                             )}
                                         </div>

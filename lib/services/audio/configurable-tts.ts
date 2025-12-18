@@ -93,6 +93,12 @@ class ConfigurableTTSService implements TTSProvider {
         this.currentProvider.cancel();
     }
 
+    warmup(): void {
+        if (this.currentProvider.warmup) {
+            this.currentProvider.warmup();
+        }
+    }
+
     async speak(text: string, lang: string, options?: TTSOptions): Promise<void> {
         return this.currentProvider.speak(text, lang, options);
     }

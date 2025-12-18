@@ -20,6 +20,10 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     // Changed: Track specific item being played (e.g., 'response', 'translation-fr')
     const [currentlyPlayingKey, setCurrentlyPlayingKey] = useState<string | null>(null);
 
+    // Collapsible State (Sparks & Translations)
+    const [isSparksCollapsed, setIsSparksCollapsed] = useState(true); // Default Closed
+    const [isTranslationsCollapsed, setIsTranslationsCollapsed] = useState(true); // Default Closed
+
     // Suggestions
     const [conversationSuggestions, setConversationSuggestions] = useState<Array<{ phrase: string; translations?: Record<string, string> }>>([]);
     const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -30,6 +34,9 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     const lastPlayedResponse = useRef<string>('');
     const lastSuggestionResponse = useRef<string>('');
     const lastUserInputRef = useRef<string>('');
+    const isTranslationsCollapsedRef = useRef(isTranslationsCollapsed);
+
+    useEffect(() => { isTranslationsCollapsedRef.current = isTranslationsCollapsed; }, [isTranslationsCollapsed]);
 
     // Load Languages from Local Storage
     useEffect(() => {
@@ -55,6 +62,15 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
             }
         }
     }, []);
+
+    // Auto-expand/collapse translations based on language count
+    useEffect(() => {
+        if (languages.length > 1) {
+            setIsTranslationsCollapsed(false);
+        } else {
+            setIsTranslationsCollapsed(true);
+        }
+    }, [languages.length]);
 
     const setLanguagesWithPersistence = useCallback((langs: string[]) => {
         setLanguages(langs);
@@ -138,8 +154,8 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
         } finally {
             setIsGenerating(false);
 
-            // Trigger translation immediately after response is complete
-            if (fullResponse && languages.length > 1) {
+            // Trigger translation immediately after response is complete ONLY if enabled
+            if (fullResponse && languages.length > 1 && !isTranslationsCollapsedRef.current) {
                 setIsOutputTranslating(true);
                 try {
                     const src = languages[0];
@@ -154,6 +170,30 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
             }
         }
     }, [context, sourceLang, languages]);
+
+    // Effect to handle translation when toggling OPEN
+    useEffect(() => {
+        const translateEffect = async () => {
+            // If we open text, have response, needed languages, but no translations yet -> fetch
+            if (!isTranslationsCollapsed && response && !isGenerating && languages.length > 1) {
+                if (Object.keys(translations).length === 0) {
+                    setIsOutputTranslating(true);
+                    try {
+                        const src = languages[0];
+                        const targets = languages.slice(1);
+                        const results = await translationService.translateMultiple(response, src, targets);
+                        setTranslations(results);
+                    } catch (e) {
+                        console.error("Delayed output translation failed", e);
+                    } finally {
+                        setIsOutputTranslating(false);
+                    }
+                }
+            }
+        };
+
+        translateEffect();
+    }, [isTranslationsCollapsed, response, isGenerating, languages]);
 
     // ============================================================================
     // Audio Playback Effect (only when autoPlay is enabled)
@@ -213,15 +253,32 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     // ============================================================================
     useEffect(() => {
         const fetchSuggestions = async () => {
-            // Skip suggestions during auto-play mode
-            if (autoPlayActive) {
+            // Skip suggestions if collapsed
+            if (isSparksCollapsed) {
                 setConversationSuggestions([]);
                 return;
             }
 
+            // Skip suggestions during auto-play mode
+            // if (autoPlayActive) {
+            //    setConversationSuggestions([]);
+            //    return;
+            // }
+
             if (!response || response === lastSuggestionResponse.current) {
                 if (!response) setConversationSuggestions([]);
-                return;
+                // If it IS the same response but we just opened the section, logic below handles it?
+                // Actually, if lastSuggestionResponse matches, we return.
+                // But if we toggle OPEN, we want to fetch even if response hasn't changed?
+                // Let's reset lastSuggestionResponse if we toggled?
+                // Or better: remove the strict check if we are explicitly triggering due to toggle
+                // but simpler: if collapsed, we returned early.
+                // If we un-collapse, this effect runs (because isSparksCollapsed changed).
+                // But lastSuggestionResponse.current might equal response.
+                // So we need to allow re-fetching if we don't have suggestions?
+                if (conversationSuggestions.length > 0) return; // Already have them
+
+                if (!response) return; // Nothing to suggest for
             }
 
             const seemsComplete = response.length > 0 && !isGenerating;
@@ -246,7 +303,7 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
 
         const timeout = setTimeout(fetchSuggestions, 1000);
         return () => clearTimeout(timeout);
-    }, [response, isGenerating, sourceLang, languages, autoPlayActive]);
+    }, [response, isGenerating, sourceLang, languages, autoPlayActive, isSparksCollapsed]);
 
     // ============================================================================
     // Video
@@ -312,11 +369,11 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
         state: {
             context, languages, response, predictions, videoActive, isGenerating,
             translations, isTranslating, images, audioEnabledLanguages, currentlyPlayingKey,
-            conversationSuggestions, suggestionsLoading, videoRef
+            conversationSuggestions, suggestionsLoading, videoRef, isSparksCollapsed, isTranslationsCollapsed
         },
         actions: {
             setContext, setLanguages: setLanguagesWithPersistence, setAudioEnabledLanguages,
-            generateResponse, toggleVideo, reset, playAudio, stopAllAudio
+            generateResponse, toggleVideo, reset, playAudio, stopAllAudio, setIsSparksCollapsed, setIsTranslationsCollapsed
         }
     };
 }
