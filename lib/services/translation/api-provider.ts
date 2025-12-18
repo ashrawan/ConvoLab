@@ -1,0 +1,72 @@
+/**
+ * API Translation Provider
+ * Calls backend translation API (backend chooses AI model)
+ */
+
+import { TranslationProvider } from './types';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+export class APITranslationProvider implements TranslationProvider {
+    name = 'api';
+
+    isAvailable(): boolean {
+        return true; // API is always available (assuming backend is running)
+    }
+
+    async translate(text: string, sourceLang: string, targetLang: string): Promise<string> {
+        if (!text) return text;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/translate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text,
+                    source_lang: sourceLang,
+                    target_lang: targetLang
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Translation API error: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.translated || text;
+        } catch (error) {
+            console.error('API translation error:', error);
+            throw error;
+        }
+    }
+
+    async translateMultiple(
+        text: string,
+        sourceLang: string,
+        targetLangs: string[]
+    ): Promise<Record<string, string>> {
+        if (!text || targetLangs.length === 0) return {};
+
+        try {
+            const response = await fetch(`${API_BASE}/api/ai/translate/multiple`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text,
+                    source_lang: sourceLang,
+                    target_langs: targetLangs
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Translation API error: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.translations || {};
+        } catch (error) {
+            console.error('API multi-translation error:', error);
+            return {};
+        }
+    }
+}
