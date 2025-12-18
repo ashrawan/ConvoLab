@@ -318,7 +318,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                                 </div>
                                 {/* Hover Tooltip */}
                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/90 border border-white/10 rounded-md text-[10px] text-gray-300 font-medium opacity-0 group-hover/counter:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap shadow-xl z-50">
-                                    {maxAutoplayCount - autoplayCount} remaining
+                                    after {maxAutoplayCount - autoplayCount} messages auto-play will pause
                                 </div>
                             </div>
                         </>
