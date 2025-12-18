@@ -5,6 +5,20 @@ import ConversationSuggestions from '../shared/ConversationSuggestions';
 import { ResizableDivider } from '../shared/ResizableDivider';
 import ReactMarkdown from 'react-markdown';
 
+// Helper to render highlighted text preserving whitespace
+const renderHighlightedText = (text: string, activeIndex: number) => {
+    let wordCount = 0;
+    return text.split(/(\s+)/).map((part, i) => {
+        if (part.length > 0 && !part.match(/\s/)) {
+            const isActive = wordCount === activeIndex;
+            wordCount++;
+            return <span key={i} className={isActive ? "bg-violet-500/50 text-white shadow-[0_0_10px_rgba(139,92,246,0.3)] rounded px-1 -mx-1 transition-all duration-150" : ""}>{part}</span>;
+        }
+        // Use whitespace-pre-wrap to allow wrapping while preserving sequence
+        return <span key={i} className="whitespace-pre-wrap">{part}</span>;
+    });
+};
+
 interface PartyBPanelProps {
     // Context
     context: string;
@@ -15,6 +29,7 @@ interface PartyBPanelProps {
     onAudioEnabledChange?: (languages: string[]) => void;
     // Changed: Track specific item being played (e.g., 'response', 'translation-fr')
     currentlyPlayingKey?: string | null;
+    highlightedWordIndex?: number;
 
     // Response
     response: string;
@@ -48,6 +63,7 @@ export default function PartyBPanel({
     audioEnabledLanguages,
     onAudioEnabledChange,
     currentlyPlayingKey,
+    highlightedWordIndex,
     response,
     isGenerating,
     translations,
@@ -63,6 +79,8 @@ export default function PartyBPanel({
 }: PartyBPanelProps) {
     // Check if the main response is playing (key='response')
     const isPlayingMain = currentlyPlayingKey === 'response';
+    const isReading = highlightedWordIndex !== undefined && highlightedWordIndex >= 0;
+    const showActiveState = isPlayingMain || isReading;
 
     // Resizable top section height (in pixels)
     const containerRef = useRef<HTMLDivElement>(null);
@@ -115,22 +133,25 @@ export default function PartyBPanel({
             >
                 {/* Response Area */}
                 <div className="flex-1 relative p-6 overflow-y-auto custom-scrollbar min-h-0">
-                    {/* Speaking indicator - Top */}
-                    {isPlayingMain && response && (
+                    {/* Speaking/Reading indicator - Top */}
+                    {showActiveState && response && (
                         <div className="flex items-center gap-2 mb-3">
-                            <span className="text-xs uppercase tracking-wide text-violet-400 font-medium">Speaking...</span>
+                            <span className={`text-xs uppercase tracking-wide font-medium ${isReading ? 'text-emerald-400' : 'text-violet-400'}`}>
+                                {isReading ? 'Reading...' : 'Speaking...'}
+                            </span>
                             <span className="flex gap-0.5 items-end h-3">
-                                <span className="w-0.5 h-1.5 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
-                                <span className="w-0.5 h-3 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
-                                <span className="w-0.5 h-2 bg-violet-400 animate-[pulse_0.7s_infinite]"></span>
+                                <span className={`w-0.5 h-1.5 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                <span className={`w-0.5 h-3 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                <span className={`w-0.5 h-2 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
                             </span>
                         </div>
                     )}
 
                     {/* Response Text */}
-                    {/* Response Text */}
-                    <div className={`text-2xl leading-relaxed whitespace-pre-wrap transition-colors duration-300 ${isPlayingMain ? 'text-violet-200' : 'text-emerald-300'}`}>
-                        {response ? (
+                    <div className={`text-xl leading-relaxed whitespace-pre-wrap transition-colors duration-300 ${isPlayingMain ? 'text-violet-200' : 'text-emerald-300'}`}>
+                        {highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
+                            renderHighlightedText(response, highlightedWordIndex)
+                        ) : response ? (
                             <ReactMarkdown
                                 components={{
                                     p: ({ children }) => <span className="block mb-2 last:mb-0">{children}</span>,
@@ -156,19 +177,19 @@ export default function PartyBPanel({
                         <div className="absolute bottom-4 right-4">
                             <button
                                 onClick={() => {
-                                    if (isPlayingMain && onStopAudio) {
+                                    if (showActiveState && onStopAudio) {
                                         onStopAudio();
                                     } else {
                                         onPlayAudio(response, languages[0] || 'en', 'response');
                                     }
                                 }}
-                                className={`p-3 rounded-full transition-all shadow-lg ${isPlayingMain
+                                className={`p-3 rounded-full transition-all shadow-lg ${showActiveState
                                     ? 'bg-violet-500 text-white hover:bg-violet-600'
                                     : 'bg-white/10 text-gray-400 hover:text-white hover:bg-white/20'
                                     }`}
-                                title={isPlayingMain ? "Stop" : "Play response"}
+                                title={showActiveState ? "Stop" : "Play response"}
                             >
-                                {isPlayingMain ? (
+                                {showActiveState ? (
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                                         <rect x="6" y="6" width="12" height="12" rx="2" />
                                     </svg>

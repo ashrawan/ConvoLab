@@ -44,7 +44,7 @@ export default function Home() {
   // Auto-play setting (enabled by default)
   const [autoPlay, setAutoPlay] = useState(true);
   const [pauseMicOnAudio, setPauseMicOnAudio] = useState(true);
-  const [readingSpeed, setReadingSpeed] = useState(180); // WPM
+  const [readingSpeed, setReadingSpeed] = useState(50); // WPM
   const [showTypingEffect, setShowTypingEffect] = useState(true);
   const [autoPlayActive, setAutoPlayActive] = useState(false);
 
@@ -106,6 +106,7 @@ export default function Home() {
   const autoPlayMode = useAutoPlay({
     partyAContext: partyA.state.context,
     partyBContext: partyB.state.context,
+    partyBResponse: partyB.state.response, // Pass Party B response for highlighting
     partyALang: partyA.state.languages[0] || 'en',
     autoPlayAudio: autoPlay,
     readingSpeed,
@@ -122,6 +123,12 @@ export default function Home() {
   useEffect(() => {
     setAutoPlayActive(autoPlayMode.state.isRunning);
   }, [autoPlayMode.state.isRunning]);
+
+  // Determine highlight target and indices
+  const highlightTarget = autoPlayMode.state.highlightTarget;
+  const highlightIndex = autoPlayMode.state.highlightedWordIndex;
+  const partyAHighlightIndex = highlightTarget === 'party_a' ? highlightIndex : -1;
+  const partyBHighlightIndex = highlightTarget === 'party_b' ? highlightIndex : -1;
 
   // ============================================================================
   // Helpers
@@ -200,7 +207,7 @@ export default function Home() {
           audioEnabledLanguages={partyA.state.audioEnabledLanguages}
           onAudioEnabledChange={partyA.actions.setAudioEnabledLanguages}
           currentlyPlayingKey={partyA.state.currentlyPlayingKey}
-          highlightedWordIndex={autoPlayMode.state.highlightedWordIndex}
+          highlightedWordIndex={partyAHighlightIndex}
           input={partyA.state.input}
           onInputChange={partyA.actions.handleInput}
           onSubmit={partyA.actions.handleManualSubmit}
@@ -217,7 +224,10 @@ export default function Home() {
           lastSentTranslations={partyA.state.lastSentTranslations}
           isTranslating={partyA.state.isTranslating}
           onPlayAudio={partyA.actions.playAudio}
-          onStopAudio={partyA.actions.stopAllAudio}
+          onStopAudio={() => {
+            partyA.actions.stopAllAudio();
+            if (autoPlayMode.state.isRunning) autoPlayMode.actions.stop();
+          }}
           images={partyA.state.images}
           videoActive={partyA.state.videoActive}
           onVideoToggle={partyA.actions.toggleVideo}
@@ -233,12 +243,16 @@ export default function Home() {
           audioEnabledLanguages={partyB.state.audioEnabledLanguages}
           onAudioEnabledChange={partyB.actions.setAudioEnabledLanguages}
           currentlyPlayingKey={partyB.state.currentlyPlayingKey}
+          highlightedWordIndex={partyBHighlightIndex}
           response={partyB.state.response}
           isGenerating={partyB.state.isGenerating}
           translations={partyB.state.translations}
           isTranslating={partyB.state.isTranslating}
           onPlayAudio={partyB.actions.playAudio}
-          onStopAudio={partyB.actions.stopAllAudio}
+          onStopAudio={() => {
+            partyB.actions.stopAllAudio();
+            if (autoPlayMode.state.isRunning) autoPlayMode.actions.stop();
+          }}
           suggestions={partyB.state.conversationSuggestions}
           isLoadingSuggestions={partyB.state.suggestionsLoading}
           onSelectSuggestion={(phrase) => {

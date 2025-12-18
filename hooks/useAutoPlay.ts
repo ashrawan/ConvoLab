@@ -18,6 +18,7 @@ export type AutoPlayPhase =
 interface UseAutoPlayParams {
     partyAContext: string;
     partyBContext: string;
+    partyBResponse?: string;
     partyALang: string;
     autoPlayAudio: boolean;
     readingSpeed: number; // WPM
@@ -36,6 +37,7 @@ interface AutoPlayState {
     phase: AutoPlayPhase;
     typingText: string;
     highlightedWordIndex: number;
+    highlightTarget: 'party_a' | 'party_b' | null;
 }
 
 // Generate conversation summary from history
@@ -54,6 +56,7 @@ function generateSummary(history: ConversationExchange[]): string {
 export function useAutoPlay({
     partyAContext,
     partyBContext,
+    partyBResponse,
     partyALang,
     autoPlayAudio,
     readingSpeed,
@@ -68,7 +71,8 @@ export function useAutoPlay({
     // Sound Effect
     const [playTyping, { stop: stopTyping }] = useSound('/sounds/keyboard-typing.mp3', {
         volume: 0.7,
-        loop: true
+        loop: true,
+        interrupt: true
     });
 
     const [state, setState] = useState<AutoPlayState>({
@@ -76,7 +80,8 @@ export function useAutoPlay({
         isPaused: false,
         phase: 'idle',
         typingText: '',
-        highlightedWordIndex: -1
+        highlightedWordIndex: -1,
+        highlightTarget: null
     });
 
     // Conversation history (shared between manual and auto-play modes)
@@ -97,6 +102,7 @@ export function useAutoPlay({
     const showTypingEffectRef = useRef(showTypingEffect);
     const partyAContextRef = useRef(partyAContext);
     const partyBContextRef = useRef(partyBContext);
+    const partyBResponseRef = useRef(partyBResponse);
     const partyALangRef = useRef(partyALang);
     const conversationHistoryRef = useRef(conversationHistory);
     const onSetInputRef = useRef(onSetInput);
@@ -134,8 +140,9 @@ export function useAutoPlay({
     useEffect(() => {
         partyAContextRef.current = partyAContext;
         partyBContextRef.current = partyBContext;
+        partyBResponseRef.current = partyBResponse;
         partyALangRef.current = partyALang;
-    }, [partyAContext, partyBContext, partyALang]);
+    }, [partyAContext, partyBContext, partyBResponse, partyALang]);
 
     useEffect(() => {
         conversationHistoryRef.current = conversationHistory;
@@ -165,8 +172,6 @@ export function useAutoPlay({
     // Highlight words for reading effect
     const highlightWords = useCallback(async (text: string) => {
         const parts = text.split(/(\s+)/);
-        const wpm = readingSpeedRef.current || 180;
-        const msPerWord = (60 / wpm) * 1000;
 
         let wordCount = 0;
         for (const part of parts) {
@@ -181,6 +186,12 @@ export function useAutoPlay({
             if (part.length > 0 && !part.match(/^\s+$/)) {
                 // It's a word
                 setState(prev => ({ ...prev, highlightedWordIndex: wordCount }));
+
+                // Calculate speed dynamically for each word to support real-time adjustments
+                const currentWpm = readingSpeedRef.current || 50;
+                // Minimum 10ms per word to prevent infinite loop or freezing
+                const msPerWord = Math.max(10, (60 / Math.max(10, currentWpm)) * 1000);
+
                 await new Promise(r => setTimeout(r, msPerWord));
                 wordCount++;
             }
@@ -207,9 +218,14 @@ export function useAutoPlay({
                 if (cancelRef.current) return false;
 
                 // Wait if paused
-                while (isPausedRef.current && !cancelRef.current) {
-                    await new Promise(r => setTimeout(r, 50));
+                if (isPausedRef.current) {
+                    stopTyping(); // Stop sound while paused
+                    while (isPausedRef.current && !cancelRef.current) {
+                        await new Promise(r => setTimeout(r, 50));
+                    }
+                    if (!cancelRef.current) playTyping(); // Resume sound only if not cancelled
                 }
+
                 if (cancelRef.current) return false;
 
                 typed += char;
@@ -345,7 +361,26 @@ export function useAutoPlay({
             } else {
                 console.log('📖 Phase 4: Reading mode');
                 setState(prev => ({ ...prev, phase: 'reading' }));
+
+                // Highlight Party A's message
+                console.log('🔦 Highlighting Party A message');
+                setState(prev => ({ ...prev, highlightTarget: 'party_a' }));
                 await highlightWords(message);
+                setState(prev => ({ ...prev, highlightTarget: null }));
+
+                if (cancelRef.current) break;
+                // Brief pause before Party B
+                await new Promise(r => setTimeout(r, 500));
+
+                // Highlight Party B's response
+                const partyBResp = partyBResponseRef.current;
+                console.log('🔦 Highlighting Party B response:', partyBResp ? 'Found' : 'Missing');
+                if (partyBResp && !cancelRef.current) {
+                    setState(prev => ({ ...prev, highlightTarget: 'party_b' }));
+                    await highlightWords(partyBResp);
+                    setState(prev => ({ ...prev, highlightTarget: null }));
+                }
+
                 await new Promise(r => setTimeout(r, 500));
             }
 
@@ -364,9 +399,10 @@ export function useAutoPlay({
             isPaused: false,
             phase: 'idle',
             typingText: '',
-            highlightedWordIndex: -1
+            highlightedWordIndex: -1,
+            highlightTarget: null
         }));
-    }, [generateNextMessage, typeMessage, addToHistory]);
+    }, [generateNextMessage, typeMessage, addToHistory, highlightWords]);
 
     // Start auto-play
     const start = useCallback(() => {
@@ -417,7 +453,8 @@ export function useAutoPlay({
             isPaused: false,
             phase: 'idle',
             typingText: '',
-            highlightedWordIndex: -1
+            highlightedWordIndex: -1,
+            highlightTarget: null
         }));
     }, []);
 

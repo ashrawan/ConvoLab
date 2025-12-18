@@ -36,7 +36,8 @@ const renderHighlightedText = (text: string, activeIndex: number) => {
             wordCount++;
             return <span key={i} className={isActive ? "bg-violet-500/50 text-white shadow-[0_0_10px_rgba(139,92,246,0.3)] rounded px-1 -mx-1 transition-all duration-150" : "text-gray-300/90 transition-colors duration-300"}>{part}</span>;
         }
-        return <span key={i} className="whitespace-pre">{part}</span>;
+        // Use whitespace-pre-wrap to allow wrapping while preserving sequence
+        return <span key={i} className="whitespace-pre-wrap">{part}</span>;
     });
 };
 
@@ -66,12 +67,14 @@ export default function TextInputPanel({
 }: TextInputPanelProps) {
     const [showTranslations, setShowTranslations] = useState(true);
     const hasTranslations = Object.keys(lastSentTranslations).length > 0;
+    const isReading = highlightedWordIndex !== undefined && highlightedWordIndex >= 0;
+    const showActiveState = isAudioPlaying || isReading;
 
     return (
         <div className="flex-1 relative flex flex-col">
             {/* Last Sent Message - Above the text input */}
             {lastSubmission && (
-                <div className={`border-b transition-colors duration-300 ${isAudioPlaying || (currentlyPlayingKey?.startsWith('translation-'))
+                <div className={`border-b transition-colors duration-300 ${isAudioPlaying || isReading || (currentlyPlayingKey?.startsWith('translation-'))
                     ? 'bg-violet-500/10 border-violet-500/50'
                     : 'bg-white/5 border-white/5'
                     }`}>
@@ -79,14 +82,14 @@ export default function TextInputPanel({
                     <div className="px-4 py-2 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                             <div className="flex items-center gap-2 shrink-0">
-                                <span className={`text-xs uppercase tracking-wide font-medium ${isAudioPlaying ? 'text-violet-400' : 'text-gray-500'}`}>
-                                    {isAudioPlaying ? 'Speaking...' : 'Last Sent'}
+                                <span className={`text-xs uppercase tracking-wide font-medium ${showActiveState ? (isReading ? 'text-emerald-400' : 'text-violet-400') : 'text-gray-500'}`}>
+                                    {showActiveState ? (isReading ? 'Reading...' : 'Speaking...') : 'Last Sent'}
                                 </span>
-                                {isAudioPlaying && (
+                                {showActiveState && (
                                     <span className="flex gap-0.5 items-end h-3">
-                                        <span className="w-0.5 h-1.5 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
-                                        <span className="w-0.5 h-3 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
-                                        <span className="w-0.5 h-2 bg-violet-400 animate-[pulse_0.7s_infinite]"></span>
+                                        <span className={`w-0.5 h-1.5 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                        <span className={`w-0.5 h-3 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
+                                        <span className={`w-0.5 h-2 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-emerald-400' : 'bg-violet-400'}`}></span>
                                     </span>
                                 )}
                             </div>
@@ -121,19 +124,19 @@ export default function TextInputPanel({
                             {onPlayTTS && (
                                 <button
                                     onClick={() => {
-                                        if (isAudioPlaying && onStopTTS) {
+                                        if (showActiveState && onStopTTS) {
                                             onStopTTS();
                                         } else {
                                             onPlayTTS(lastSubmission.text);
                                         }
                                     }}
-                                    className={`p-1.5 rounded-full transition-all ${isAudioPlaying
+                                    className={`p-1.5 rounded-full transition-all ${showActiveState
                                         ? 'bg-violet-500 text-white hover:bg-violet-600 shadow-lg'
                                         : 'text-gray-400 hover:text-white hover:bg-white/10'
                                         }`}
-                                    title={isAudioPlaying ? "Stop" : "Play Again"}
+                                    title={showActiveState ? "Stop" : "Play Again"}
                                 >
-                                    {isAudioPlaying ? (
+                                    {showActiveState ? (
                                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                                             <rect x="6" y="6" width="12" height="12" rx="2" />
                                         </svg>
@@ -241,7 +244,7 @@ export default function TextInputPanel({
                         }
                     }}
                     placeholder={highlightedWordIndex && highlightedWordIndex >= 0 ? "" : "Type your message here..."}
-                    className={`w-full h-full bg-transparent text-2xl placeholder:text-gray-600 focus:outline-none resize-none leading-relaxed p-6 pb-16 ${highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? 'text-transparent caret-transparent selection:bg-transparent selection:text-transparent' : ''}`}
+                    className={`w-full h-full bg-transparent text-xl placeholder:text-gray-600 focus:outline-none resize-none leading-relaxed p-6 pb-16 ${highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? 'text-transparent caret-transparent selection:bg-transparent selection:text-transparent' : ''}`}
                 />
 
                 {/* Controls (bottom) */}
