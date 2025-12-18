@@ -44,7 +44,7 @@ export default function Home() {
   // Auto-play setting (enabled by default)
   const [autoPlay, setAutoPlay] = useState(true);
   const [pauseMicOnAudio, setPauseMicOnAudio] = useState(true);
-  const [readingSpeed, setReadingSpeed] = useState(50); // WPM
+  const [readingSpeed, setReadingSpeed] = useState(180); // WPM
   const [showTypingEffect, setShowTypingEffect] = useState(true);
   const [autoPlayActive, setAutoPlayActive] = useState(false);
 
@@ -193,6 +193,8 @@ export default function Home() {
             isAutoPlaying={autoPlayMode.state.isRunning}
             isAutoPlayPaused={autoPlayMode.state.isPaused}
             onAutoPlayToggle={autoPlayMode.actions.toggle}
+            autoplayCount={autoPlayMode.state.count}
+            maxAutoplayCount={autoPlayMode.state.maxCount}
           />
         </div>
       </div>

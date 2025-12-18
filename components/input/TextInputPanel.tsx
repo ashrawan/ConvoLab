@@ -74,7 +74,7 @@ export default function TextInputPanel({
         <div className="flex-1 relative flex flex-col">
             {/* Last Sent Message - Above the text input */}
             {lastSubmission && (
-                <div className={`border-b transition-colors duration-300 ${isAudioPlaying || isReading || (currentlyPlayingKey?.startsWith('translation-'))
+                <div className={`border-b transition-colors duration-300 ${isAudioPlaying || isReading
                     ? 'bg-violet-500/10 border-violet-500/50'
                     : 'bg-white/5 border-white/5'
                     }`}>

@@ -126,6 +126,8 @@ interface ContextInputProps {
     isAutoPlaying?: boolean;
     isAutoPlayPaused?: boolean;
     onAutoPlayToggle?: () => void;
+    autoplayCount?: number;
+    maxAutoplayCount?: number;
 }
 
 export const ConvoContextInput: React.FC<ContextInputProps> = ({
@@ -133,7 +135,9 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     className,
     isAutoPlaying = false,
     isAutoPlayPaused = false,
-    onAutoPlayToggle
+    onAutoPlayToggle,
+    autoplayCount,
+    maxAutoplayCount
 }) => {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -302,6 +306,22 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                                 </>
                             )}
                         </button>
+                    )}
+
+                    {/* Auto-Play Count Indicator */}
+                    {isAutoPlaying && autoplayCount !== undefined && maxAutoplayCount !== undefined && (
+                        <>
+                            <div className="w-px h-6 bg-white/10" />
+                            <div className="relative group/counter">
+                                <div className="px-2 py-1 text-[10px] font-mono font-medium text-gray-400 bg-white/5 rounded-md border border-white/5 cursor-help">
+                                    {autoplayCount}/{maxAutoplayCount}
+                                </div>
+                                {/* Hover Tooltip */}
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/90 border border-white/10 rounded-md text-[10px] text-gray-300 font-medium opacity-0 group-hover/counter:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap shadow-xl z-50">
+                                    {maxAutoplayCount - autoplayCount} remaining
+                                </div>
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

@@ -22,7 +22,7 @@ export function TTSSettings({
     onPauseMicChange,
     autoPlay = true,
     onAutoPlayChange,
-    readingSpeed = 100,
+    readingSpeed = 180,
     onReadingSpeedChange,
     showTypingEffect = true,
     onShowTypingEffectChange
@@ -129,7 +129,7 @@ export function TTSSettings({
                     />
 
                     {/* Dropdown Panel */}
-                    <div className="absolute right-0 top-full mt-3 w-80 bg-[#1a1a1c]/95 border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 overflow-hidden backdrop-blur-2xl ring-1 ring-white/5 origin-top-right transition-all">
+                    <div className="absolute right-0 top-full mt-3 w-80 bg-[#1a1a1c] border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 overflow-hidden ring-1 ring-white/5 origin-top-right transition-all">
                         {/* Header */}
                         <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between bg-white/[0.03]">
                             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em]">Settings</span>

@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import useSound from 'use-sound';
 import { getApiUrl } from '@/lib/config/api';
 
+const MAX_AUTOPLAY_COUNT = 5;
+
 export interface ConversationExchange {
     role: 'party_a' | 'party_b';
     content: string;
@@ -38,6 +40,7 @@ interface AutoPlayState {
     typingText: string;
     highlightedWordIndex: number;
     highlightTarget: 'party_a' | 'party_b' | null;
+    count: number;
 }
 
 // Generate conversation summary from history
@@ -81,7 +84,8 @@ export function useAutoPlay({
         phase: 'idle',
         typingText: '',
         highlightedWordIndex: -1,
-        highlightTarget: null
+        highlightTarget: null,
+        count: 0
     });
 
     // Conversation history (shared between manual and auto-play modes)
@@ -188,7 +192,7 @@ export function useAutoPlay({
                 setState(prev => ({ ...prev, highlightedWordIndex: wordCount }));
 
                 // Calculate speed dynamically for each word to support real-time adjustments
-                const currentWpm = readingSpeedRef.current || 50;
+                const currentWpm = readingSpeedRef.current || 180;
                 // Minimum 10ms per word to prevent infinite loop or freezing
                 const msPerWord = Math.max(10, (60 / Math.max(10, currentWpm)) * 1000);
 
@@ -290,6 +294,7 @@ export function useAutoPlay({
     // Main auto-play loop
     const runAutoPlayCycle = useCallback(async () => {
         console.log('🎬 Starting auto-play cycle');
+        let currentCycleCount = 0;
 
         while (isRunningRef.current && !cancelRef.current) {
             // Wait if paused
@@ -307,6 +312,9 @@ export function useAutoPlay({
                 console.log('⚠️ No message generated or cancelled');
                 break;
             }
+
+            // Increment count
+            setState(prev => ({ ...prev, count: prev.count + 1 }));
 
             // Phase 2: Type message
             console.log('⌨️ Phase 2: Typing message');
@@ -386,6 +394,16 @@ export function useAutoPlay({
 
             if (cancelRef.current) break;
 
+            // Check if we hit the limit during this cycle
+            // Use a ref for current count to be safe or just read state
+            // Getting fresh state inside loop is tricky with stale closure unless we use setState callback or ref.
+            // We'll use a local counter since we are in a while loop.
+            currentCycleCount++;
+            if (currentCycleCount >= MAX_AUTOPLAY_COUNT) {
+                console.log('🛑 Max auto-play count reached (loop end)');
+                break;
+            }
+
             // Brief pause between cycles
             console.log('⏸️ Pause before next cycle');
             await new Promise(r => setTimeout(r, 1500));
@@ -419,7 +437,8 @@ export function useAutoPlay({
             ...prev,
             isRunning: true,
             isPaused: false,
-            phase: 'generating'
+            phase: 'generating',
+            count: 0
         }));
 
         // Start the loop (use setTimeout to ensure state is set first)
@@ -488,7 +507,8 @@ export function useAutoPlay({
     return {
         state: {
             ...state,
-            conversationHistory
+            conversationHistory,
+            maxCount: MAX_AUTOPLAY_COUNT
         },
         actions: {
             start,

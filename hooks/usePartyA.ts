@@ -180,7 +180,7 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
         }
     }, [buildMode, updateAI]); // Removed fetchPredictions dependency, added updateAI
 
-    const handleManualSubmit = useCallback(() => {
+    const handleManualSubmit = useCallback(async () => {
         // Clear any pending auto-submission
         if (submissionTimer.current) clearTimeout(submissionTimer.current);
 
@@ -189,35 +189,50 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
 
         // Allow re-submitting same text if manually clicked
         lastProcessedInput.current = trimmed;
-        // Immediate update request
-        updateAI(trimmed, languagesRef.current);
 
-        // Capture current translations for last sent display
-        setLastSentTranslations({ ...translations });
+        // Clear input immediately for responsiveness
+        setInput('');
+
+        // Set submission immediately (translations will pop in)
         setSubmission({ text: trimmed, timestamp: Date.now() });
+        setLastSentTranslations({}); // Start clear
+
+        const sourceLang = languagesRef.current[0] || 'en';
+        const targetLangs = languagesRef.current.slice(1);
+        let finalTranslations: Record<string, string> = {};
+
+        // Fetch translations specifically for this submission
+        if (targetLangs.length > 0) {
+            try {
+                finalTranslations = await translationService.translateMultiple(trimmed, sourceLang, targetLangs);
+            } catch (e) {
+                console.error('Failed to translate submission', e);
+            }
+        }
+
+        // Update translations state
+        setLastSentTranslations(finalTranslations);
 
         // Only auto-play if autoPlay is enabled and we have enabled languages
         if (autoPlay && audioEnabledLanguages.length > 0) {
-            const primaryLang = languagesRef.current[0] || 'en';
             const queue: Array<{ text: string; lang: string; onStart: () => void; onEnd: () => void }> = [];
 
             // Add primary language if enabled
-            if (audioEnabledLanguages.includes(primaryLang)) {
+            if (audioEnabledLanguages.includes(sourceLang)) {
                 queue.push({
                     text: trimmed,
-                    lang: primaryLang,
+                    lang: sourceLang,
                     onStart: () => setCurrentlyPlayingKey('lastSent'),
                     onEnd: () => setCurrentlyPlayingKey(prev => prev === 'lastSent' ? null : prev)
                 });
             }
 
             // Add translations for other enabled languages
-            const targetLangs = languagesRef.current.slice(1);
             targetLangs.forEach(lang => {
-                if (audioEnabledLanguages.includes(lang) && translations[lang]) {
+                if (audioEnabledLanguages.includes(lang) && finalTranslations[lang]) {
                     const key = `translation-${lang}`;
                     queue.push({
-                        text: translations[lang],
+                        text: finalTranslations[lang],
                         lang: lang,
                         onStart: () => setCurrentlyPlayingKey(key),
                         onEnd: () => setCurrentlyPlayingKey(prev => prev === key ? null : prev)
@@ -230,9 +245,7 @@ export function usePartyA(autoPlay: boolean = true, pauseMicOnAudio: boolean = t
                 sequentialAudioPlayer.playSequentially(queue, 500);
             }
         }
-
-        setInput('');
-    }, [input, updateAI, autoPlay, audioEnabledLanguages, translations]);
+    }, [input, autoPlay, audioEnabledLanguages]);
 
     const handleWordSelect = useCallback((phrase: string) => {
         const newText = input ? `${input} ${phrase}` : phrase;
