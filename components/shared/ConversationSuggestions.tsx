@@ -45,8 +45,9 @@ export default function ConversationSuggestions({
                     onClick={() => onSelectSuggestion(suggestion.phrase)}
                     className="group relative bg-card hover:bg-primary/5 border border-border hover:border-primary/30 rounded-xl p-4 transition text-left"
                 >
+
                     <div className="flex flex-col gap-2">
-                        <p className="text-xs md:text-base text-card-foreground group-hover:text-primary transition font-medium truncate">
+                        <p className="text-xs md:text-sm text-card-foreground group-hover:text-primary transition truncate">
                             {suggestion.phrase}
                         </p>
                         {suggestion.translations && Object.keys(suggestion.translations).length > 0 && (

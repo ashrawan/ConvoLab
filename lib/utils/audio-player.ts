@@ -30,6 +30,13 @@ class SequentialAudioPlayer {
     }
 
     /**
+     * Resume Audio Context (Warmup)
+     */
+    resumeContext(): void {
+        ttsService.warmup();
+    }
+
+    /**
      * Cancel any ongoing audio playback
      */
     cancel(): void {

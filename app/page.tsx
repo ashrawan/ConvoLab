@@ -9,7 +9,9 @@ import { Footer } from '@/components/shared/Footer';
 import { usePartyA } from '@/hooks/usePartyA';
 import { usePartyB } from '@/hooks/usePartyB';
 import { useAudioController } from '@/hooks/useAudioController';
-import { useAutoPlay } from '@/hooks/useAutoPlay';
+import { useSimulationManager, SimulationDelegate } from '@/hooks/useSimulationManager';
+import { chatService } from '@/lib/services/llm';
+import { sequentialAudioPlayer } from '@/lib/utils/audio-player';
 
 // ============================================================================
 // Two-Party Human ↔ AI Communication Interface
@@ -43,22 +45,38 @@ export default function Home() {
   // ============================================================================
 
   // Auto-play setting (enabled by default)
-  const [autoPlay, setAutoPlay] = useState(true);
+  // Auto-play setting (enabled by default)
+  const [playbackMode, setPlaybackMode] = useState<'audio' | 'highlight' | 'manual'>('audio');
+  const [delayMultiplier, setDelayMultiplier] = useState(2);
   const [pauseMicOnAudio, setPauseMicOnAudio] = useState(true);
   const [readingSpeed, setReadingSpeed] = useState(180); // WPM
   const [showTypingEffect, setShowTypingEffect] = useState(true);
   const [autoPlayActive, setAutoPlayActive] = useState(false);
 
-  // 1. Initialize Party A (Human Input) - pass autoPlay and pauseMicOnAudio
-  const partyA = usePartyA(autoPlay, pauseMicOnAudio);
+  // 5. Initialize Auto-Play Mode (Order matters: defined here to use state below, but needs careful ordering with usePartyA)
+  // Actually, we need to pass `isRunning` to usePartyA, but `useAutoPlay` isn't initialized yet.
+  // Cyclic dependency solution: Use a separate state for isAutoPlaying or ref.
+  // We already have `autoPlayActive` state synced from `autoPlayMode.state.isRunning`.
+  // Use `autoPlayActive` to control the props passed to Party A/B.
 
-  // 2. Initialize Party B (AI Output) - pass autoPlay and autoPlayActive to disable suggestions
+  // 1. Initialize Party A (Human Input)
+  // Disable internal auto-play if simulation is running
+  // 1. Initialize Party A (Human Input)
+  // Disable internal auto-play if simulation is running (autoPlayActive)
+  // If simulation is running, we pass 'manual' so the hooks don't self-trigger.
+  const hookPlaybackMode = autoPlayActive ? 'manual' : playbackMode;
+
+  const partyA = usePartyA(hookPlaybackMode, readingSpeed, pauseMicOnAudio);
+
+  // 2. Initialize Party B (AI Output)
   const partyB = usePartyB(
     partyA.state.input,
     partyA.state.languages[0] || 'en',
     hasUserInteractedRef.current,
-    autoPlay,
-    autoPlayActive
+    hookPlaybackMode,
+    readingSpeed,
+    autoPlayActive,
+    !!partyA.state.currentlyPlayingKey // waitForExternalPlayback
   );
 
   // 3. Logic Bridge: Connect Party A Submission to Party B Generation
@@ -71,14 +89,15 @@ export default function Home() {
       const text = partyA.state.submission.text;
       if (text) {
         // If MANUAL input (not auto-play), add to history
-        if (!autoPlayMode.state.isRunning) {
-          autoPlayMode.actions.addToHistory('party_a', text);
+        // If MANUAL input (not auto-play), add to history
+        if (!simulationManager.state.isRunning) {
+          conversationHistoryRef.current.push({ role: 'party_a', content: text });
         }
 
         // Generate Party B response with full context & history
         partyB.actions.generateResponse(
           text,
-          autoPlayMode.state.conversationHistory, // Shared history
+          conversationHistoryRef.current, // Shared history
           partyA.state.context // Party A context
         );
       }
@@ -92,8 +111,11 @@ export default function Home() {
 
     if (wasGenerating && !isGenerating) {
       // Just finished generating
+      // Just finished generating
       if (partyB.state.response) {
-        autoPlayMode.actions.addToHistory('party_b', partyB.state.response);
+        if (!simulationManager.state.isRunning) {
+          conversationHistoryRef.current.push({ role: 'party_b', content: partyB.state.response });
+        }
       }
     }
 
@@ -103,33 +125,174 @@ export default function Home() {
   // 4. Initialize Audio Controller (Pause Mic on Audio)
   useAudioController(partyA.actions.startAudio, pauseMicOnAudio, setPauseMicOnAudio);
 
-  // 5. Initialize Auto-Play Mode
-  const autoPlayMode = useAutoPlay({
-    partyAContext: partyA.state.context,
-    partyBContext: partyB.state.context,
-    partyBResponse: partyB.state.response, // Pass Party B response for highlighting
-    partyALang: partyA.state.languages[0] || 'en',
-    autoPlayAudio: autoPlay,
+  // 5. Initialize Simulation Manager
+  // ============================================================================
+
+  // History for Simulation Context
+  const conversationHistoryRef = useRef<{ role: string, content: string }[]>([]);
+
+  // Typing Sound
+  const typingSoundRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    // Only client-side
+    if (typeof window !== 'undefined') {
+      typingSoundRef.current = new Audio('/sounds/keyboard-typing.mp3');
+      typingSoundRef.current.loop = true;
+      typingSoundRef.current.volume = 0.4;
+    }
+  }, []);
+
+  const delegate: SimulationDelegate = {
+    predictNextMessage: async (history, summary) => {
+      // We use the local ref history + context
+      try {
+        // Construct prompt similar to useAutoPlay logic
+        const currentHistory = conversationHistoryRef.current;
+        const response = await chatService.generateNextMessage({
+          party_a_context: partyA.state.context,
+          party_b_context: partyB.state.context, // Party B context is what Party A is "reacting" to in a way? No, Party A just talks.
+          // Actually, for "Auto Play", we want Party A to generate a message relevant to the conversation.
+          // usage: generateNextMessage(params)
+          // params: { system_prompt?, history, ... }
+
+          // Let's rely on the service ability or default logic.
+          // We need to pass the history.
+          history: currentHistory.map(h => ({
+            role: h.role === 'party_a' ? 'user' : 'model',
+            content: h.content
+          }))
+        });
+        return response.message;
+      } catch (e) {
+        console.error("Prediction failed", e);
+        return null;
+      }
+    },
+    typeMessage: async (text) => {
+      // Simple typing effect
+      if (!text) return true;
+      if (!isSimulationRunningRef.current) return false;
+
+      if (!showTypingEffect) {
+        partyA.actions.setInput(text);
+        return true;
+      }
+
+      // Play Sound
+      if (typingSoundRef.current) {
+        try {
+          typingSoundRef.current.currentTime = 0;
+          await typingSoundRef.current.play();
+        } catch (e) { console.warn("Audio play failed", e); }
+      }
+
+      const msPerChar = 60000 / (readingSpeed * 5); // Rough WPM to char delay
+      let current = '';
+      for (let i = 0; i < text.length; i++) {
+        if (!isSimulationRunningRef.current) break;
+        current += text[i];
+        partyA.actions.setInput(current);
+        // Check for randomness or strict speed
+        await new Promise(r => setTimeout(r, msPerChar));
+      }
+
+      // Stop Sound
+      if (typingSoundRef.current) {
+        typingSoundRef.current.pause();
+        typingSoundRef.current.currentTime = 0;
+      }
+
+      return isSimulationRunningRef.current;
+    },
+    submitMessage: async () => {
+      return partyA.actions.handleManualSubmit();
+    },
+    waitForPartyBResponse: async () => {
+      // Poll for Party B response completion
+      // Since Party B generation is triggered by useEffect on submission, we just wait.
+      let attempts = 0;
+      while (attempts < 600) { // 60s timeout
+        if (partyB.state.response && !partyB.state.isGenerating) {
+          // Wait a brief moment to ensure translations are ready if needed
+          if (partyB.state.isTranslating) {
+            await new Promise(r => setTimeout(r, 200));
+            continue;
+          }
+          return { response: partyB.state.response, translations: partyB.state.translations };
+        }
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+      return null;
+    },
+    playPartyAAudio: async (text, translations) => {
+      await partyA.actions.playSequence(text, translations);
+    },
+    playPartyBAudio: async (text, translations) => {
+      await partyB.actions.playSequence(text, translations);
+    },
+    highlightText: async (text, role, wpm) => {
+      if (role === 'party_a') {
+        await partyA.actions.simulatePlayback(text, wpm, 'lastSent');
+      } else {
+        await partyB.actions.simulatePlayback(text, wpm, 'response');
+      }
+    },
+    waitWithCountdown: async (role, ms) => {
+      const setStatus = role === 'party_a' ? partyA.actions.setCustomStatus : partyB.actions.setCustomStatus;
+      const startTime = Date.now();
+
+      while (Date.now() - startTime < ms) {
+        // Double check cancellation
+        if (!isSimulationRunningRef.current) break;
+
+        const remainingSec = Math.ceil((ms - (Date.now() - startTime)) / 1000);
+        setStatus(`Reading... (${remainingSec}s)`);
+        await new Promise(r => setTimeout(r, 200));
+      }
+      setStatus(null);
+    },
+    addToHistory: (role, content) => {
+      conversationHistoryRef.current.push({ role, content });
+      // If we wanted to expose this to the UI, we'd need a state.
+      // For now, it's internal to the simulation flow.
+    },
+    warmupAudio: () => {
+      sequentialAudioPlayer.resumeContext();
+    }
+  };
+
+  var isSimulationRunningRef = useRef(false);
+
+  const simulationManager = useSimulationManager({
+    delegate,
+    playbackMode,
+    delayMultiplier,
     readingSpeed,
-    onSetInput: partyA.actions.setInput,
-    onSubmit: partyA.actions.handleManualSubmit,
-    isPartyBResponding: partyB.state.isGenerating,
-    isPartyBTranslating: partyB.state.isTranslating,
-    isAudioPlaying: !!partyB.state.currentlyPlayingKey,
-    isPartyAAudioPlaying: !!partyA.state.currentlyPlayingKey,
-    showTypingEffect
+    maxCycles: 10 // Default
   });
+
+  // Keep Ref in sync
+  useEffect(() => {
+    isSimulationRunningRef.current = simulationManager.state.isRunning;
+
+    // If we just stopped, ensure we kill any active highlight/delay on parties
+    if (!simulationManager.state.isRunning) {
+      partyA.actions.stopSimulation();
+      partyB.actions.stopSimulation();
+    }
+  }, [simulationManager.state.isRunning]);
 
   // 6. Sync auto-play active state
   useEffect(() => {
-    setAutoPlayActive(autoPlayMode.state.isRunning);
-  }, [autoPlayMode.state.isRunning]);
+    setAutoPlayActive(simulationManager.state.isRunning);
+  }, [simulationManager.state.isRunning]);
 
   // 7. Global Warmup Listener
   useEffect(() => {
     const handleWarmup = () => {
-      // Unlock audio engines on first interaction
-      autoPlayMode.actions.warmup();
+      // Unlock audio engines
+      sequentialAudioPlayer.resumeContext();
     };
 
     window.addEventListener('click', handleWarmup, { once: true });
@@ -141,13 +304,13 @@ export default function Home() {
       window.removeEventListener('touchstart', handleWarmup);
       window.removeEventListener('keydown', handleWarmup);
     };
-  }, [autoPlayMode.actions.warmup]);
+  }, []);
 
   // Determine highlight target and indices
-  const highlightTarget = autoPlayMode.state.highlightTarget;
-  const highlightIndex = autoPlayMode.state.highlightedWordIndex;
-  const partyAHighlightIndex = highlightTarget === 'party_a' ? highlightIndex : -1;
-  const partyBHighlightIndex = highlightTarget === 'party_b' ? highlightIndex : -1;
+  const highlightTarget = simulationManager.state.highlightTarget;
+  // We aren't implementing granular word highlighting in the manager yet, so these can be null or simple.
+  // The simulation state has highlightTarget.
+
 
   // ============================================================================
   // Helpers
@@ -155,8 +318,10 @@ export default function Home() {
 
   const handleContextSet = (data: any) => {
     // 0. Reset State (Clean Slate)
-    autoPlayMode.actions.stop();
-    autoPlayMode.actions.clearHistory();
+    simulationManager.actions.stop();
+    // Clear history ref
+    conversationHistoryRef.current = [];
+
     partyA.actions.stopAllAudio();
     partyB.actions.stopAllAudio();
     partyA.actions.reset();
@@ -191,14 +356,13 @@ export default function Home() {
         <ConvoContextInput
           onContextSet={handleContextSet}
           className="shadow-2xl shadow-primary/10"
-          isAutoPlaying={autoPlayMode.state.isRunning}
-          isAutoPlayPaused={autoPlayMode.state.isPaused}
+          isAutoPlaying={simulationManager.state.isRunning}
+          isAutoPlayPaused={simulationManager.state.isPaused}
           onAutoPlayToggle={() => {
-            autoPlayMode.actions.warmup();
-            autoPlayMode.actions.toggle();
+            simulationManager.actions.toggle();
           }}
-          autoplayCount={autoPlayMode.state.count}
-          maxAutoplayCount={autoPlayMode.state.maxCount}
+          autoplayCount={simulationManager.state.cycleCount}
+          maxAutoplayCount={10}
 
           // Left: Brand
           brandContent={
@@ -225,10 +389,12 @@ export default function Home() {
               <TTSSettings
                 pauseMicOnAudio={pauseMicOnAudio}
                 onPauseMicChange={setPauseMicOnAudio}
-                autoPlay={autoPlay}
-                onAutoPlayChange={setAutoPlay}
+                playbackMode={playbackMode}
+                onPlaybackModeChange={setPlaybackMode}
                 readingSpeed={readingSpeed}
                 onReadingSpeedChange={setReadingSpeed}
+                delayMultiplier={delayMultiplier}
+                onDelayMultiplierChange={setDelayMultiplier}
                 showTypingEffect={showTypingEffect}
                 onShowTypingEffectChange={setShowTypingEffect}
               />
@@ -251,16 +417,15 @@ export default function Home() {
           audioEnabledLanguages={partyA.state.audioEnabledLanguages}
           onAudioEnabledChange={partyA.actions.setAudioEnabledLanguages}
           currentlyPlayingKey={partyA.state.currentlyPlayingKey}
-          highlightedWordIndex={partyAHighlightIndex}
+          highlightedWordIndex={partyA.state.highlightedWordIndex}
           input={partyA.state.input}
           onInputChange={partyA.actions.handleInput}
           onSubmit={() => {
-            autoPlayMode.actions.warmup();
             partyA.actions.handleManualSubmit();
           }}
           audioActive={partyA.state.audioActive}
           onToggleAudio={() => {
-            autoPlayMode.actions.warmup();
+            sequentialAudioPlayer.resumeContext();
             if (partyA.state.audioActive) {
               partyA.actions.stopAudio();
             } else {
@@ -274,19 +439,18 @@ export default function Home() {
           predictions={partyA.state.predictions}
           isLoadingPredictions={partyA.state.isLoading}
           onSelectPhrase={(phrase) => {
-            autoPlayMode.actions.warmup();
+            if (simulationManager.state.isRunning) simulationManager.actions.stop();
             partyA.actions.handleWordSelect(phrase);
           }}
           translations={partyA.state.translations}
           lastSentTranslations={partyA.state.lastSentTranslations}
           isTranslating={partyA.state.isTranslating}
           onPlayAudio={(text, lang, key) => {
-            autoPlayMode.actions.warmup();
             partyA.actions.playAudio(text, lang, key);
           }}
           onStopAudio={() => {
             partyA.actions.stopAllAudio();
-            if (autoPlayMode.state.isRunning) autoPlayMode.actions.stop();
+            if (simulationManager.state.isRunning) simulationManager.actions.stop();
           }}
           images={partyA.state.images}
           videoActive={partyA.state.videoActive}
@@ -296,6 +460,7 @@ export default function Home() {
           onTogglePhrases={() => partyA.actions.setIsPhrasesCollapsed(!partyA.state.isPhrasesCollapsed)}
           isTranslationsCollapsed={partyA.state.isTranslationsCollapsed}
           onToggleTranslations={() => partyA.actions.setIsTranslationsCollapsed(!partyA.state.isTranslationsCollapsed)}
+          customStatus={partyA.state.customStatus}
         />
 
         {/* PARTY B (AI) - RIGHT SIDE */}
@@ -307,23 +472,18 @@ export default function Home() {
           audioEnabledLanguages={partyB.state.audioEnabledLanguages}
           onAudioEnabledChange={partyB.actions.setAudioEnabledLanguages}
           currentlyPlayingKey={partyB.state.currentlyPlayingKey}
-          highlightedWordIndex={partyBHighlightIndex}
+          highlightedWordIndex={partyB.state.highlightedWordIndex}
           response={partyB.state.response}
           isGenerating={partyB.state.isGenerating}
           translations={partyB.state.translations}
           isTranslating={partyB.state.isTranslating}
-          onPlayAudio={(text, lang, key) => {
-            autoPlayMode.actions.warmup();
-            partyB.actions.playAudio(text, lang, key);
-          }}
-          onStopAudio={() => {
-            partyB.actions.stopAllAudio();
-            if (autoPlayMode.state.isRunning) autoPlayMode.actions.stop();
-          }}
+          onPlayAudio={partyB.actions.playAudio}
+          onStopAudio={partyB.actions.stopAllAudio}
+          customStatus={partyB.state.customStatus}
           suggestions={partyB.state.conversationSuggestions}
           isLoadingSuggestions={partyB.state.suggestionsLoading}
           onSelectSuggestion={(phrase) => {
-            autoPlayMode.actions.warmup();
+            if (simulationManager.state.isRunning) simulationManager.actions.stop();
             partyA.actions.submitPhrase(phrase);
           }}
           images={partyB.state.images}

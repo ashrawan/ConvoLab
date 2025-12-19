@@ -144,6 +144,13 @@ export class APITTSProvider implements TTSProvider {
                 }
             };
 
+
+            // Final check before playing - prevents playing if cancelled during setup
+            if (requestId !== this.currentRequestId) {
+                URL.revokeObjectURL(audioUrl);
+                return;
+            }
+
             await audio.play();
 
         } catch (error) {

@@ -6,30 +6,34 @@ import { checkApiHealth, HealthCheckResult } from '@/lib/utils/health-check';
 import { useTheme } from '@/components/theme-provider';
 
 interface TTSSettingsProps {
-    className?: string;
-    pauseMicOnAudio?: boolean;
-    onPauseMicChange?: (value: boolean) => void;
-    autoPlay?: boolean;
-    onAutoPlayChange?: (value: boolean) => void;
-    readingSpeed?: number;
-    onReadingSpeedChange?: (value: number) => void;
-    showTypingEffect?: boolean;
-    onShowTypingEffectChange?: (value: boolean) => void;
+    pauseMicOnAudio: boolean;
+    onPauseMicChange: (val: boolean) => void;
+    playbackMode: 'audio' | 'highlight' | 'manual';
+    onPlaybackModeChange: (mode: 'audio' | 'highlight' | 'manual') => void;
+    readingSpeed: number;
+    onReadingSpeedChange: (speed: number) => void;
+    delayMultiplier: number;
+    onDelayMultiplierChange: (multiplier: number) => void;
+    showTypingEffect: boolean;
+    onShowTypingEffectChange: (show: boolean) => void;
+    className?: string; // Add className prop
 }
 
 export function TTSSettings({
     className = '',
-    pauseMicOnAudio = true,
+    pauseMicOnAudio,
     onPauseMicChange,
-    autoPlay = true,
-    onAutoPlayChange,
-    readingSpeed = 180,
+    playbackMode,
+    onPlaybackModeChange,
+    readingSpeed,
     onReadingSpeedChange,
-    showTypingEffect = true,
+    delayMultiplier,
+    onDelayMultiplierChange,
+    showTypingEffect,
     onShowTypingEffectChange
 }: TTSSettingsProps) {
-    const [ttsProvider, setTTSProvider] = useState<TTSProviderType>('browser');
-    const [sttProvider, setSTTProvider] = useState<STTProviderType>('browser');
+    const [ttsProvider, setTTSProvider] = useState<TTSProviderType>(() => ttsService.getProviderType());
+    const [sttProvider, setSTTProvider] = useState<STTProviderType>(() => sttService.getProviderType());
     const [isOpen, setIsOpen] = useState(false);
     const [health, setHealth] = useState<HealthCheckResult>({ status: 'loading' });
     const { theme, setTheme } = useTheme();
@@ -62,10 +66,6 @@ export function TTSSettings({
 
         // Check every 30 seconds
         const interval = setInterval(performHealthCheck, 30000);
-
-        // Init state
-        setTTSProvider(ttsService.getProviderType());
-        setSTTProvider(sttService.getProviderType());
 
         // Listen for changes
         const unsubTTS = ttsService.onProviderChange((newType) => {
@@ -303,20 +303,6 @@ export function TTSSettings({
                                     </button>
                                 </div>
 
-                                {/* Auto-Audio (was Auto Play) */}
-                                <div className="px-1 flex items-center justify-between">
-                                    <div>
-                                        <span className="text-sm text-foreground block">Auto-Audio</span>
-                                        <span className="text-[10px] text-muted-foreground">Play audio on submit</span>
-                                    </div>
-                                    <button
-                                        onClick={() => onAutoPlayChange && onAutoPlayChange(!autoPlay)}
-                                        className={`w-8 h-4 rounded-full transition-colors relative focus:outline-none ${autoPlay ? 'bg-blue-500' : 'bg-muted'}`}
-                                    >
-                                        <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${autoPlay ? 'translate-x-4' : 'translate-x-0'}`} />
-                                    </button>
-                                </div>
-
                                 {/* Auto-pause Mic */}
                                 <div className="px-1 flex items-center justify-between">
                                     <div>
@@ -335,14 +321,69 @@ export function TTSSettings({
                             {/* AI Auto-Play Section (Reading Speed) */}
                             <div className="bg-muted/10 rounded-lg p-3 border border-border space-y-3">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                        AI Auto-Play
+                                        Playback Mode
                                     </span>
                                 </div>
+
+                                <div className="flex bg-muted rounded-lg p-1 gap-1">
+                                    {(['audio', 'highlight', 'manual'] as const).map((mode) => (
+                                        <button
+                                            key={mode}
+                                            onClick={() => onPlaybackModeChange(mode)}
+                                            className={`flex-1 px-2 py-1.5 text-[10px] font-medium rounded-md transition-all capitalize ${playbackMode === mode
+                                                ? 'bg-background shadow-sm text-primary'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                        >
+                                            {mode === 'audio' ? 'Auto Audio' : mode === 'highlight' ? 'Auto Highlight' : 'Manual'}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Speed Settings */}
+                                {(playbackMode === 'highlight' || playbackMode === 'manual') && (
+                                    <div className="px-1">
+                                        {playbackMode === 'highlight' && (
+                                            <>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-sm text-foreground">Highlight Speed</span>
+                                                    <span className="text-[10px] text-muted-foreground">{readingSpeed} WPM</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="100"
+                                                    max="600"
+                                                    step="10"
+                                                    value={readingSpeed}
+                                                    onChange={(e) => onReadingSpeedChange(parseInt(e.target.value))}
+                                                    className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                                                />
+                                            </>
+                                        )}
+                                        {playbackMode === 'manual' && (
+                                            <>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-sm text-foreground">Simulation Delay</span>
+                                                    <span className="text-[10px] text-muted-foreground">{delayMultiplier}x</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="10"
+                                                    step="1"
+                                                    value={delayMultiplier}
+                                                    onChange={(e) => onDelayMultiplierChange(parseFloat(e.target.value))}
+                                                    className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                                                />
+                                            </>
+                                        )}
+                                    </div>
+                                )}
 
                                 <div className="px-1 pt-2 flex items-center justify-between">
                                     <div>
@@ -355,22 +396,6 @@ export function TTSSettings({
                                     >
                                         <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform ${showTypingEffect ? 'translate-x-4' : 'translate-x-0'}`} />
                                     </button>
-                                </div>
-
-                                <div className="px-1">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-sm text-foreground">Reading Speed</span>
-                                        <span className="text-[10px] text-muted-foreground">{readingSpeed} WPM</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="10"
-                                        max="300"
-                                        step="10"
-                                        value={readingSpeed}
-                                        onChange={(e) => onReadingSpeedChange && onReadingSpeedChange(parseInt(e.target.value))}
-                                        className="w-full h-1 bg-muted rounded-full appearance-none cursor-pointer accent-amber-500"
-                                    />
                                 </div>
 
                             </div>

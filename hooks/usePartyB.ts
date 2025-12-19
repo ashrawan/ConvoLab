@@ -3,7 +3,9 @@ import { PhrasePrediction, chatService, getConversationSuggestions } from '@/lib
 import { translationService } from '@/lib/services';
 import { sequentialAudioPlayer } from '@/lib/utils/audio-player';
 
-export function usePartyB(partyAInput: string, sourceLang: string, hasUserInteracted: boolean, autoPlay: boolean = true, autoPlayActive: boolean = false) {
+export type PlaybackMode = 'audio' | 'highlight' | 'delay' | 'manual';
+
+export function usePartyB(partyAInput: string, sourceLang: string, hasUserInteracted: boolean, playbackMode: PlaybackMode = 'audio', readingSpeed: number = 180, autoPlayActive: boolean = false, waitForExternalPlayback: boolean = false) {
     // State
     const [context, setContext] = useState('');
     const [languages, setLanguages] = useState<string[]>(['en']);
@@ -15,10 +17,14 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     // Translation State
     const [translations, setTranslations] = useState<Record<string, string>>({});
     const [isTranslating, setIsOutputTranslating] = useState(false);
-    const [images, setImages] = useState<string[]>([]);
+    const [images] = useState<string[]>([]);
     const [audioEnabledLanguages, setAudioEnabledLanguages] = useState<string[]>(['en']);
-    // Changed: Track specific item being played (e.g., 'response', 'translation-fr')
     const [currentlyPlayingKey, setCurrentlyPlayingKey] = useState<string | null>(null);
+    const [isPlayingSequence, setIsPlayingSequence] = useState(false);
+    // Simulation State
+    const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
+    const [customStatus, setCustomStatus] = useState<string | null>(null);
+    const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Collapsible State (Sparks & Translations)
     const [isSparksCollapsed, setIsSparksCollapsed] = useState(true); // Default Closed
@@ -35,6 +41,7 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     const lastSuggestionResponse = useRef<string>('');
     const lastUserInputRef = useRef<string>('');
     const isTranslationsCollapsedRef = useRef(isTranslationsCollapsed);
+    const pendingSimulatePlaybackRef = useRef<{ text: string; speed: number } | null>(null);
 
     useEffect(() => { isTranslationsCollapsedRef.current = isTranslationsCollapsed; }, [isTranslationsCollapsed]);
 
@@ -193,14 +200,113 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
         };
 
         translateEffect();
-    }, [isTranslationsCollapsed, response, isGenerating, languages]);
+    }, [isTranslationsCollapsed, response, isGenerating, languages, translations]);
+
+    // ============================================================================
+    // Internal Audio Helper
+    // ============================================================================
+    const playBatchAudio = useCallback((text: string, translationsToPlay: Record<string, string>) => {
+        const enabledLangs = audioEnabledLanguages; // Use state as it changes infrequently
+
+        if (enabledLangs.length === 0) return Promise.resolve();
+
+        const queue: Array<{ text: string; lang: string; onStart: () => void; onEnd: () => void }> = [];
+        const src = languages[0];
+        const targets = languages.slice(1);
+
+        // Play main response first
+        if (enabledLangs.includes(src)) {
+            queue.push({
+                text: text,
+                lang: src,
+                onStart: () => setCurrentlyPlayingKey('response'),
+                onEnd: () => setCurrentlyPlayingKey(prev => prev === 'response' ? null : prev)
+            });
+        }
+
+        // Then play translations
+        targets.forEach(lang => {
+            if (enabledLangs.includes(lang) && translationsToPlay[lang]) {
+                const key = `translation-${lang}`;
+                queue.push({
+                    text: translationsToPlay[lang],
+                    lang: lang,
+                    onStart: () => setCurrentlyPlayingKey(key),
+                    onEnd: () => setCurrentlyPlayingKey(prev => prev === key ? null : prev)
+                });
+            }
+        });
+
+        if (queue.length > 0) {
+            console.log(`🔊 Playing ${queue.length} Party B audio clips`);
+            setIsPlayingSequence(true);
+            return sequentialAudioPlayer.playSequentially(queue, 500, { cancel: false }).finally(() => {
+                setIsPlayingSequence(false);
+            });
+        }
+        return Promise.resolve();
+    }, [audioEnabledLanguages, languages]);
+
+    // ============================================================================
+    // Simulation Actions (Moved Up for usage in Effect)
+    // ============================================================================
+    const playbackResolverRef = useRef<(() => void) | null>(null);
+
+    const simulatePlayback = useCallback(async (text: string, wpm: number, key: string = 'response') => {
+        // Clear any existing
+        if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+        if (playbackResolverRef.current) {
+            playbackResolverRef.current();
+            playbackResolverRef.current = null;
+        }
+
+        setCurrentlyPlayingKey(key);
+        setHighlightedWordIndex(-1);
+
+        const words = text.split(/(\s+)/).filter(p => p.length > 0 && !p.match(/^\s+$/));
+        if (words.length === 0) return;
+
+        // Safety check: ensure wpm is reasonable
+        const safeWpm = Math.max(50, Math.min(1000, wpm));
+        const msPerWord = 60000 / safeWpm;
+
+        let currentIndex = 0;
+        return new Promise<void>((resolve) => {
+            playbackResolverRef.current = resolve;
+            setHighlightedWordIndex(0);
+
+            simulationIntervalRef.current = setInterval(() => {
+                currentIndex++;
+                if (currentIndex >= words.length) {
+                    if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+                    setCurrentlyPlayingKey(null);
+                    setHighlightedWordIndex(-1);
+                    if (playbackResolverRef.current) {
+                        playbackResolverRef.current();
+                        playbackResolverRef.current = null;
+                    }
+                } else {
+                    setHighlightedWordIndex(currentIndex);
+                }
+            }, msPerWord);
+        });
+    }, []);
 
     // ============================================================================
     // Audio Playback Effect (only when autoPlay is enabled)
     // ============================================================================
+    // Explicitly play sequence for current response
+    const playSequence = useCallback(async (responseToPlay: string, translationsToPlay: Record<string, string>) => {
+        await playBatchAudio(responseToPlay, translationsToPlay);
+    }, [playBatchAudio]);
+
+    // ============================================================================
+    // Audio Playback Effect (only when autoPlay logic is active internally)
+    // ============================================================================
     useEffect(() => {
-        // Skip auto-play if disabled
-        if (!autoPlay) return;
+        // Skip auto-play if disabled via prop (e.g. during simulation mode where we control manually)
+        // Or if mode is manual
+        if (playbackMode === 'manual' || playbackMode === 'delay') return;
 
         if (isGenerating || isTranslating) return;
         if (!response || response === lastPlayedResponse.current) return;
@@ -215,38 +321,29 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
 
         lastPlayedResponse.current = response;
 
-        const src = languages[0];
-        const targets = languages.slice(1);
-        const queue = [];
-
-        // Play main response first
-        if (audioEnabledLanguages.includes(src)) {
-            queue.push({
-                text: response,
-                lang: src,
-                onStart: () => setCurrentlyPlayingKey('response'),
-                onEnd: () => setCurrentlyPlayingKey(prev => prev === 'response' ? null : prev)
-            });
-        }
-
-        // Then play translations
-        targets.forEach(lang => {
-            if (audioEnabledLanguages.includes(lang) && translations[lang]) {
-                const key = `translation-${lang}`;
-                queue.push({
-                    text: translations[lang],
-                    lang: lang,
-                    onStart: () => setCurrentlyPlayingKey(key),
-                    onEnd: () => setCurrentlyPlayingKey(prev => prev === key ? null : prev)
-                });
+        if (playbackMode === 'audio') {
+            playBatchAudio(response, translations);
+        } else if (playbackMode === 'highlight') {
+            if (waitForExternalPlayback) {
+                // Queue it
+                console.log('⏳ Queuing Party B Highlight (Waiting for Party A)');
+                pendingSimulatePlaybackRef.current = { text: response, speed: readingSpeed };
+            } else {
+                simulatePlayback(response, readingSpeed);
             }
-        });
-
-        if (queue.length > 0) {
-            console.log(`🔊 Queueing ${queue.length} Party B audio clips (waiting for idle)`);
-            sequentialAudioPlayer.playSequentially(queue, 500, { cancel: false });
         }
-    }, [response, audioEnabledLanguages, translations, languages, isGenerating, isTranslating, hasUserInteracted, autoPlay]);
+
+    }, [response, translations, languages, isGenerating, isTranslating, hasUserInteracted, playbackMode, playBatchAudio, audioEnabledLanguages.length, simulatePlayback, readingSpeed, waitForExternalPlayback]);
+
+    // Effect to trigger pending highlight when external playback stops
+    useEffect(() => {
+        if (!waitForExternalPlayback && pendingSimulatePlaybackRef.current) {
+            console.log('▶️ Triggering Queued Party B Highlight');
+            const { text, speed } = pendingSimulatePlaybackRef.current;
+            pendingSimulatePlaybackRef.current = null;
+            simulatePlayback(text, speed);
+        }
+    }, [waitForExternalPlayback, simulatePlayback]);
 
     // ============================================================================
     // Suggestions
@@ -303,7 +400,7 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
 
         const timeout = setTimeout(fetchSuggestions, 1000);
         return () => clearTimeout(timeout);
-    }, [response, isGenerating, sourceLang, languages, autoPlayActive, isSparksCollapsed]);
+    }, [response, isGenerating, sourceLang, languages, autoPlayActive, isSparksCollapsed, conversationSuggestions.length]);
 
     // ============================================================================
     // Video
@@ -348,14 +445,11 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
             lang,
             onStart: () => setCurrentlyPlayingKey(key),
             onEnd: () => setCurrentlyPlayingKey(prev => prev === key ? null : prev)
-        }]);
+        }]).finally(() => setIsPlayingSequence(false));
+        setIsPlayingSequence(true);
     }, []);
 
-    // Stop audio and reset state
-    const stopAllAudio = useCallback(() => {
-        sequentialAudioPlayer.cancel();
-        setCurrentlyPlayingKey(null);
-    }, []);
+
 
     const reset = () => {
         setResponse('');
@@ -365,16 +459,68 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
         setConversationSuggestions([]);
     };
 
+    // ============================================================================
+    // Simulation Actions
+    // ============================================================================
+
+
+    const stopSimulation = useCallback(() => {
+        if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
+        setCurrentlyPlayingKey(null);
+        setHighlightedWordIndex(-1);
+        setCustomStatus(null);
+        if (playbackResolverRef.current) {
+            playbackResolverRef.current();
+            playbackResolverRef.current = null;
+        }
+    }, []);
+
+    // Stop audio and reset state
+    const stopAllAudio = useCallback(() => {
+        sequentialAudioPlayer.cancel();
+        setCurrentlyPlayingKey(null);
+        stopSimulation();
+    }, [stopSimulation]);
+
     return {
         state: {
-            context, languages, response, predictions, videoActive, isGenerating,
-            translations, isTranslating, images, audioEnabledLanguages, currentlyPlayingKey,
-            conversationSuggestions, suggestionsLoading, videoRef, isSparksCollapsed, isTranslationsCollapsed
+            context,
+            languages,
+            response,
+            predictions,
+            videoActive,
+            isGenerating,
+            translations,
+            isTranslating,
+            images,
+            audioEnabledLanguages,
+            currentlyPlayingKey,
+            conversationSuggestions,
+            suggestionsLoading,
+            videoRef,
+            isSparksCollapsed,
+            isTranslationsCollapsed,
+            isPlayingSequence,
+            // Exposed simulation state
+            highlightedWordIndex,
+            customStatus
         },
         actions: {
-            setContext, setLanguages: setLanguagesWithPersistence, setAudioEnabledLanguages,
-            generateResponse, toggleVideo, reset, playAudio, stopAllAudio, setIsSparksCollapsed, setIsTranslationsCollapsed
+            setContext,
+            setLanguages: setLanguagesWithPersistence,
+            setAudioEnabledLanguages,
+            generateResponse,
+            toggleVideo,
+            reset,
+            playAudio,
+            stopAllAudio,
+            setIsSparksCollapsed,
+            setIsTranslationsCollapsed,
+            playSequence,
+            // Simulation actions
+            simulatePlayback,
+            setCustomStatus,
+            stopSimulation
         }
     };
 }
-

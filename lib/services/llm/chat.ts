@@ -24,6 +24,17 @@ export const chatService = {
     },
 
     /**
+     * Generate the next message for Auto-Play simulation
+     */
+    async generateNextMessage(data: {
+        party_a_context: string;
+        party_b_context: string;
+        history: Array<{ role: string; content: string }>;
+    }): Promise<{ message: string }> {
+        return apiClient.post('/api/ai/autoplay/generate', data);
+    },
+
+    /**
      * Get conversation continuation suggestions
      */
     async getConversationSuggestions(data: {

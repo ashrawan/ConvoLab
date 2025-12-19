@@ -61,6 +61,8 @@ interface PartyBPanelProps {
     // Translations Collapsible
     isTranslationsCollapsed?: boolean;
     onToggleTranslations?: () => void;
+    // New status override
+    customStatus?: string | null;
 }
 
 export default function PartyBPanel({
@@ -78,8 +80,9 @@ export default function PartyBPanel({
     isTranslating,
     onPlayAudio,
     onStopAudio,
-    suggestions,
-    isLoadingSuggestions,
+    customStatus,
+    suggestions = [],
+    isLoadingSuggestions = false,
     onSelectSuggestion,
     images,
     videoActive,
@@ -92,7 +95,7 @@ export default function PartyBPanel({
     // Check if the main response is playing (key='response')
     const isPlayingMain = currentlyPlayingKey === 'response';
     const isReading = highlightedWordIndex !== undefined && highlightedWordIndex >= 0;
-    const showActiveState = isPlayingMain || isReading;
+    const showActiveState = isPlayingMain || isReading || !!customStatus;
 
     // Resizable top section height (in pixels)
     const containerRef = useRef<HTMLDivElement>(null);
@@ -146,22 +149,37 @@ export default function PartyBPanel({
             >
                 {/* Response Area */}
                 <div className="flex-1 relative p-6 overflow-y-auto custom-scrollbar min-h-0">
-                    {/* Speaking/Reading indicator - Top */}
+                    {/* Speaking/Reading/Custom indicator - Top */}
                     {showActiveState && response && (
                         <div className="flex items-center gap-2 mb-2 opacity-80">
-                            <span className={`text-[10px] uppercase tracking-wider font-bold ${isReading ? 'text-blue-700 dark:text-blue-400' : 'text-violet-700 dark:text-violet-400'}`}>
-                                {isReading ? 'Reading...' : 'Speaking...'}
+                            <span className={`text-[10px] uppercase tracking-wider font-bold ${customStatus ? 'text-amber-500' :
+                                isReading ? 'text-blue-700 dark:text-blue-400' :
+                                    'text-violet-700 dark:text-violet-400'
+                                }`}>
+                                {customStatus || (isReading ? 'Reading...' : 'Speaking...')}
                             </span>
                             <span className="flex gap-0.5 items-end h-2.5">
-                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
-                                <span className={`w-0.5 h-2.5 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
-                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${customStatus ? 'bg-amber-500' :
+                                    isReading ? 'bg-blue-600 dark:bg-blue-400' :
+                                        'bg-violet-600 dark:bg-violet-400'
+                                    }`}></span>
+                                <span className={`w-0.5 h-2.5 animate-[pulse_0.8s_infinite] ${customStatus ? 'bg-amber-500' :
+                                    isReading ? 'bg-blue-600 dark:bg-blue-400' :
+                                        'bg-violet-600 dark:bg-violet-400'
+                                    }`}></span>
+                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${customStatus ? 'bg-amber-500' :
+                                    isReading ? 'bg-blue-600 dark:bg-blue-400' :
+                                        'bg-violet-600 dark:bg-violet-400'
+                                    }`}></span>
                             </span>
                         </div>
                     )}
 
                     {/* Response Text */}
-                    <div className={`text-xl leading-relaxed whitespace-pre-wrap transition-colors duration-300 ${isPlayingMain ? 'text-violet-700 dark:text-violet-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                    <div className={`text-xl leading-relaxed whitespace-pre-wrap transition-colors duration-300 ${customStatus ? 'opacity-80' :
+                        isPlayingMain ? 'text-violet-700 dark:text-violet-400' :
+                            'text-blue-700 dark:text-blue-400'
+                        }`}>
                         {highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
                             renderHighlightedText(response, highlightedWordIndex)
                         ) : response ? (

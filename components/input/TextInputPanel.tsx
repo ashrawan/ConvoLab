@@ -20,12 +20,13 @@ interface TextInputPanelProps {
     isAudioPlaying?: boolean;
     onPlayTTS?: (text: string) => void;
     onStopTTS?: () => void;
-    // New props for translations
+    // Translations
     languages?: string[];
     lastSentTranslations?: Record<string, string>;
     currentlyPlayingKey?: string | null;
     onPlayTranslationAudio?: (text: string, lang: string, key: string) => void;
     highlightedWordIndex?: number;
+    customStatus?: string | null;
 }
 
 // Helper to render highlighted text preserving whitespace
@@ -64,12 +65,14 @@ export default function TextInputPanel({
     lastSentTranslations = {},
     currentlyPlayingKey,
     onPlayTranslationAudio,
-    highlightedWordIndex
+    highlightedWordIndex,
+    customStatus
 }: TextInputPanelProps) {
     const [showTranslations, setShowTranslations] = useState(true);
     const hasTranslations = Object.keys(lastSentTranslations).length > 0;
     const isReading = highlightedWordIndex !== undefined && highlightedWordIndex >= 0;
-    const showActiveState = isAudioPlaying || isReading;
+    const showActiveState = isAudioPlaying || isReading || !!customStatus;
+
 
     return (
         <div className="flex-1 relative flex flex-col">
@@ -97,10 +100,16 @@ export default function TextInputPanel({
                                     {/* Speaking Indicator (Only visible here when playing) */}
                                     {showActiveState && (
                                         <div className="flex items-center gap-2">
+                                            <span className={`text-[10px] uppercase tracking-wider font-bold ${customStatus ? 'text-amber-500' :
+                                                isReading ? 'text-blue-700 dark:text-blue-400' :
+                                                    'text-violet-700 dark:text-violet-400'
+                                                }`}>
+                                                {customStatus || (isReading ? 'READING...' : 'SPEAKING...')}
+                                            </span>
                                             <span className="flex gap-0.5 items-end h-2">
-                                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
-                                                <span className={`w-0.5 h-2 animate-[pulse_0.8s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
-                                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${customStatus ? 'bg-amber-500' : isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                                <span className={`w-0.5 h-2 animate-[pulse_0.8s_infinite] ${customStatus ? 'bg-amber-500' : isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${customStatus ? 'bg-amber-500' : isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
                                             </span>
                                         </div>
                                     )}
@@ -192,11 +201,16 @@ export default function TextInputPanel({
                                                             {lang.toUpperCase()}
                                                         </span>
                                                         {isPlayingThis && (
-                                                            <span className="flex gap-0.5 items-end h-2.5 shrink-0">
-                                                                <span className="w-0.5 h-1 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
-                                                                <span className="w-0.5 h-2.5 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
-                                                                <span className="w-0.5 h-1.5 bg-violet-400 animate-[pulse_0.7s_infinite]"></span>
-                                                            </span>
+                                                            <>
+                                                                <span className="flex gap-0.5 items-end h-2.5 shrink-0">
+                                                                    <span className="w-0.5 h-1 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
+                                                                    <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${showActiveState ? 'bg-primary' : 'bg-violet-400'}`}></span>
+                                                                    <span className="w-0.5 h-2.5 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
+                                                                </span>
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${showActiveState ? 'text-primary' : 'text-violet-400'}`}>
+                                                                    {customStatus || (isReading ? 'READING...' : 'SPEAKING...')}
+                                                                </span>
+                                                            </>
                                                         )}
                                                     </div>
                                                     {isPlayingThis && onPlayTranslationAudio && (

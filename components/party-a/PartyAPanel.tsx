@@ -16,6 +16,7 @@ interface PartyAPanelProps {
     onAudioEnabledChange?: (languages: string[]) => void;
     // Changed: Track specific item being played (e.g., 'lastSent', 'translation-fr')
     currentlyPlayingKey?: string | null;
+    customStatus?: string | null;
     highlightedWordIndex?: number;
 
     // Input
@@ -72,6 +73,7 @@ export default function PartyAPanel({
     onAudioEnabledChange,
     currentlyPlayingKey,
     highlightedWordIndex,
+    customStatus,
     input,
     onInputChange,
     onSubmit,
@@ -179,6 +181,7 @@ export default function PartyAPanel({
                             currentlyPlayingKey={currentlyPlayingKey}
                             onPlayTranslationAudio={onPlayAudio}
                             highlightedWordIndex={highlightedWordIndex}
+                            customStatus={customStatus}
                         />
                     </div>
 

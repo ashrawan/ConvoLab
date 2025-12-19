@@ -15,6 +15,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     const [isRecording, setIsRecording] = useState(false);
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
 
@@ -42,12 +43,13 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
             };
 
             mediaRecorder.start();
+            setMediaStream(stream);
             setIsRecording(true);
             setError(null);
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Error starting recording:', err);
-            setError(err.message || 'Could not access microphone');
+            setError((err as Error).message || 'Could not access microphone');
             setIsRecording(false);
         }
     }, []);
@@ -75,6 +77,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         setAudioBlob(null);
         setError(null);
         setIsRecording(false);
+        setMediaStream(null);
         chunksRef.current = [];
     }, []);
 
@@ -83,7 +86,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         startRecording,
         stopRecording,
         audioBlob,
-        mediaStream: mediaRecorderRef.current?.stream || null, // Expose stream for visualization
+        mediaStream, // Expose stream for visualization
         reset,
         error
     };

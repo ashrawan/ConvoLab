@@ -17,7 +17,7 @@ class ConfigurableTTSService implements TTSProvider {
     private providerType: TTSProviderType;
     private listeners: Set<(type: TTSProviderType) => void> = new Set();
 
-    constructor(defaultProvider: TTSProviderType = 'api') {
+    constructor(defaultProvider: TTSProviderType = 'browser') {
         this.browserProvider = new BrowserTTSProvider();
         this.apiProvider = new APITTSProvider();
         this.providerType = defaultProvider;
@@ -50,6 +50,8 @@ class ConfigurableTTSService implements TTSProvider {
      */
     setProvider(type: TTSProviderType): void {
         console.log(`🔄 Switching TTS provider to: ${type}`);
+        // Cancel current playback before switching
+        this.cancel();
         this.providerType = type;
         this.currentProvider = this.getProvider(type);
 
