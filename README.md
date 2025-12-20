@@ -8,12 +8,13 @@ ConvoLab is a multimodal AI platform designed to enable two-way communication be
 
 ## Demo
 
-https://github.com/user-attachments/assets/6489b635-94dc-47ad-882a-6c17ed79b209
+https://github.com/user-attachments/assets/0d422e4f-ffe1-4677-b5b8-4310a81123e4
 
 
 ## Application Overview
 
 ConvoLab reimagines language learning by placing you in the center of a dynamic, two-way simulated conversation. Unlike static exercises, ConvoLab creates a living dialogue.
+
 
 The User Interface is divided into two distinct interaction zones:
 -   **Party A (Learner/User)**: The left panel is your command center. Here, you type or speak to input your inputs, manage your target languages, and receive real-time predictive assistance.
