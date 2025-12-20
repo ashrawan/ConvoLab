@@ -9,9 +9,9 @@ ConvoLab is a multimodal AI platform designed to enable two-way communication be
 ## Demo
 
 Screenshot of the UI:
-| Light Mode | Dark Mode |
+| Dark Mode | Light Mode |
 | :---: | :---: |
-| <img src="docs/light.png" width="100%" /> | <img src="docs/dark.png" width="100%" /> |
+| <img src="docs/dark.png" width="100%" /> | <img src="docs/light.png" width="100%" /> |
 
 Demo Video:
 https://github.com/user-attachments/assets/0d422e4f-ffe1-4677-b5b8-4310a81123e4
