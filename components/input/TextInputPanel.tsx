@@ -70,8 +70,9 @@ export default function TextInputPanel({
 }: TextInputPanelProps) {
     const [showTranslations, setShowTranslations] = useState(true);
     const hasTranslations = Object.keys(lastSentTranslations).length > 0;
-    const isReading = highlightedWordIndex !== undefined && highlightedWordIndex >= 0;
-    const showActiveState = isAudioPlaying || isReading || !!customStatus;
+    // Only show reading state if highlighting the main message (not a translation)
+    const isReadingMain = highlightedWordIndex !== undefined && highlightedWordIndex >= 0 && currentlyPlayingKey === 'lastSent';
+    const showActiveState = isAudioPlaying || isReadingMain || (!!customStatus && currentlyPlayingKey === 'lastSent');
 
 
     return (
@@ -101,15 +102,15 @@ export default function TextInputPanel({
                                     {showActiveState && (
                                         <div className="flex items-center gap-2">
                                             <span className={`text-[10px] uppercase tracking-wider font-bold ${customStatus ? 'text-amber-500' :
-                                                isReading ? 'text-blue-700 dark:text-blue-400' :
+                                                isReadingMain ? 'text-blue-700 dark:text-blue-400' :
                                                     'text-violet-700 dark:text-violet-400'
                                                 }`}>
-                                                {customStatus || (isReading ? 'READING...' : 'SPEAKING...')}
+                                                {customStatus || (isReadingMain ? 'READING...' : 'SPEAKING...')}
                                             </span>
                                             <span className="flex gap-0.5 items-end h-2">
-                                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${customStatus ? 'bg-amber-500' : isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
-                                                <span className={`w-0.5 h-2 animate-[pulse_0.8s_infinite] ${customStatus ? 'bg-amber-500' : isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
-                                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${customStatus ? 'bg-amber-500' : isReading ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${customStatus ? 'bg-amber-500' : isReadingMain ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                                <span className={`w-0.5 h-2 animate-[pulse_0.8s_infinite] ${customStatus ? 'bg-amber-500' : isReadingMain ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
+                                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${customStatus ? 'bg-amber-500' : isReadingMain ? 'bg-blue-600 dark:bg-blue-400' : 'bg-violet-600 dark:bg-violet-400'}`}></span>
                                             </span>
                                         </div>
                                     )}
@@ -144,12 +145,12 @@ export default function TextInputPanel({
                                 )}
                             </div>
 
-                            {/* Text Content */}
+                            {/* Text Content - Only highlight if this item is being played */}
                             <div className={`text-sm transition-all min-w-0 ${showActiveState
                                 ? 'text-violet-700 dark:text-violet-400 font-medium whitespace-pre-wrap pl-1'
                                 : 'flex-1 text-muted-foreground truncate'
                                 }`}>
-                                {highlightedWordIndex !== undefined && highlightedWordIndex >= 0
+                                {currentlyPlayingKey === 'lastSent' && highlightedWordIndex !== undefined && highlightedWordIndex >= 0
                                     ? renderHighlightedText(lastSubmission.text, highlightedWordIndex)
                                     : lastSubmission.text}
                             </div>
@@ -190,35 +191,39 @@ export default function TextInputPanel({
                                     {languages.slice(1).map(lang => {
                                         const text = lastSentTranslations[lang];
                                         if (!text) return null;
-                                        const translationKey = `translation-${lang}`;
+                                        // Use 'sent-translation-' prefix to differentiate from input translations
+                                        const translationKey = `sent-translation-${lang}`;
                                         const isPlayingThis = currentlyPlayingKey === translationKey;
 
                                         return (
-                                            <div key={lang} className={`py-1 px-2 rounded transition-all ${isPlayingThis ? 'bg-primary/10 flex flex-col gap-1.5' : 'hover:bg-muted flex items-center gap-2'}`}>
-                                                <div className={`flex items-center ${isPlayingThis ? 'justify-between w-full' : 'gap-2'}`}>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-xs px-1.5 py-0.5 rounded font-mono shrink-0 ${isPlayingThis ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                            <div key={lang} className={`py-1 px-2 rounded-lg transition-all ${isPlayingThis ? 'bg-primary/10 border border-primary/20 flex flex-col gap-1.5' : 'hover:bg-muted border border-transparent flex items-center gap-2'}`}>
+
+                                                {/* Header Layout (Badge + Status + Button) */}
+                                                <div className={`flex items-center ${isPlayingThis ? 'justify-between w-full' : 'gap-2 shrink-0'}`}>
+                                                    <div className={`flex items-center ${isPlayingThis ? 'gap-2' : ''}`}>
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono min-w-[32px] text-center transition-all shrink-0 ${isPlayingThis ? 'bg-primary/20 text-primary ring-1 ring-primary/50' : 'bg-muted text-muted-foreground'}`}>
                                                             {lang.toUpperCase()}
                                                         </span>
                                                         {isPlayingThis && (
-                                                            <>
-                                                                <span className="flex gap-0.5 items-end h-2.5 shrink-0">
-                                                                    <span className="w-0.5 h-1 bg-violet-400 animate-[pulse_0.6s_infinite]"></span>
-                                                                    <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${showActiveState ? 'bg-primary' : 'bg-violet-400'}`}></span>
-                                                                    <span className="w-0.5 h-2.5 bg-violet-400 animate-[pulse_0.8s_infinite]"></span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${customStatus ? 'text-amber-500' : 'text-primary'}`}>
+                                                                    {customStatus || ((highlightedWordIndex !== undefined && highlightedWordIndex >= 0) ? 'READING...' : 'SPEAKING...')}
                                                                 </span>
-                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${showActiveState ? 'text-primary' : 'text-violet-400'}`}>
-                                                                    {customStatus || (isReading ? 'READING...' : 'SPEAKING...')}
+                                                                {/* Audio Wave Animation */}
+                                                                <span className="flex gap-0.5 items-end h-2.5 mx-1">
+                                                                    <span className="w-0.5 h-1.5 bg-primary animate-[pulse_0.6s_infinite]"></span>
+                                                                    <span className="w-0.5 h-3 bg-primary animate-[pulse_0.8s_infinite]"></span>
+                                                                    <span className="w-0.5 h-2 bg-primary animate-[pulse_0.7s_infinite]"></span>
                                                                 </span>
-                                                            </>
+                                                            </div>
                                                         )}
                                                     </div>
-                                                    {isPlayingThis && onPlayTranslationAudio && (
+
+                                                    {/* Stop Button when playing */}
+                                                    {isPlayingThis && onStopTTS && (
                                                         <button
-                                                            onClick={() => {
-                                                                onStopTTS && onStopTTS();
-                                                            }}
-                                                            className="p-1 rounded-full bg-primary text-primary-foreground shrink-0 hover:bg-primary/90"
+                                                            onClick={onStopTTS}
+                                                            className="p-1 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shrink-0 transition-all"
                                                             title="Stop"
                                                         >
                                                             <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
@@ -228,10 +233,16 @@ export default function TextInputPanel({
                                                     )}
                                                 </div>
 
-                                                <span className={`text-xs ${isPlayingThis ? 'text-primary whitespace-pre-wrap pl-1' : 'flex-1 text-muted-foreground truncate'}`}>
-                                                    {text}
-                                                </span>
+                                                {/* Text Content */}
+                                                <div className={`text-sm transition-all min-w-0 ${isPlayingThis ? 'text-primary font-medium pl-1' : 'flex-1 text-muted-foreground truncate'}`}>
+                                                    <span className={`${isPlayingThis ? 'whitespace-pre-wrap block' : 'truncate block'}`}>
+                                                        {isPlayingThis && highlightedWordIndex !== undefined && highlightedWordIndex >= 0
+                                                            ? renderHighlightedText(text, highlightedWordIndex)
+                                                            : text}
+                                                    </span>
+                                                </div>
 
+                                                {/* Play Button when NOT playing */}
                                                 {!isPlayingThis && onPlayTranslationAudio && (
                                                     <button
                                                         onClick={() => {
@@ -270,13 +281,6 @@ export default function TextInputPanel({
                     </button>
                 </div>
 
-                {/* Highlight Overlay */}
-                {highlightedWordIndex !== undefined && highlightedWordIndex >= 0 && (
-                    <div className="absolute inset-0 p-6 pb-16 text-2xl leading-relaxed pointer-events-none break-words font-sans z-10" aria-hidden="true">
-                        {renderHighlightedText(value, highlightedWordIndex)}
-                    </div>
-                )}
-
                 <textarea
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
@@ -296,8 +300,8 @@ export default function TextInputPanel({
                             }
                         }
                     }}
-                    placeholder={highlightedWordIndex && highlightedWordIndex >= 0 ? "" : "Type Your Message Here..."}
-                    className={`w-full h-full bg-transparent text-xl placeholder:text-muted-foreground/60 text-foreground focus:outline-none resize-none leading-relaxed p-6 pb-16 ${highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? 'text-transparent caret-transparent selection:bg-transparent selection:text-transparent' : ''}`}
+                    placeholder="Type Your Message Here..."
+                    className="w-full h-full bg-transparent text-xl placeholder:text-muted-foreground/60 text-foreground focus:outline-none resize-none leading-relaxed p-6 pb-16"
                 />
 
                 {/* Controls (bottom) */}

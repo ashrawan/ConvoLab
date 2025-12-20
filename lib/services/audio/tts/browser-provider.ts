@@ -16,13 +16,21 @@ function getSpeechLang(langCode: string): string {
         'de': 'de-DE',
         'it': 'it-IT',
         'pt': 'pt-PT',
-        'zh': 'zh-CN',
+        'zh-cn': 'zh-CN',
+        'zh-tw': 'zh-TW',
         'ja': 'ja-JP',
         'ko': 'ko-KR',
         'ar': 'ar-SA',
-        'hi': 'hi-IN'
+        'hi': 'hi-IN',
+        'ru': 'ru-RU',
+        'nl': 'nl-NL',
+        'tr': 'tr-TR',
+        'pl': 'pl-PL',
+        'vi': 'vi-VN',
+        'th': 'th-TH',
+        'id': 'id-ID'
     };
-    return speechLangs[langCode] || langCode;
+    return speechLangs[langCode.toLowerCase()] || langCode;
 }
 
 // Module-level reference to prevent GC across re-renders/instances
@@ -133,13 +141,14 @@ export class BrowserTTSProvider implements TTSProvider {
 
             // Safety Timeout: If speech gets stuck or doesn't fire end event
             // (Common in Chrome for long text or if tab is backgrounded)
+            // Increased to 3 minutes to handle long generated responses without cutting off state prematurely.
             setTimeout(() => {
                 if (!hasResolved) {
                     console.warn('⚠️ TTS timed out or stuck, forcing completion to unblock mic.');
                     if (options.onEnd) options.onEnd(); // ensure callback fires
                     cleanup();
                 }
-            }, 10000); // 10 seconds max safety valve
+            }, 180000); // 3 minutes max safety valve
 
             // Speak
             if (window.speechSynthesis.paused) {

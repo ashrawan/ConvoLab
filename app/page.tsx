@@ -60,23 +60,17 @@ export default function Home() {
   // Use `autoPlayActive` to control the props passed to Party A/B.
 
   // 1. Initialize Party A (Human Input)
-  // Disable internal auto-play if simulation is running
-  // 1. Initialize Party A (Human Input)
-  // Disable internal auto-play if simulation is running (autoPlayActive)
-  // If simulation is running, we pass 'manual' so the hooks don't self-trigger.
-  const hookPlaybackMode = autoPlayActive ? 'manual' : playbackMode;
-
-  const partyA = usePartyA(hookPlaybackMode, readingSpeed, pauseMicOnAudio);
+  // Pass isSimulationControlled=autoPlayActive so hooks skip auto-play when simulation controls playback
+  const partyA = usePartyA(playbackMode, readingSpeed, pauseMicOnAudio, autoPlayActive);
 
   // 2. Initialize Party B (AI Output)
   const partyB = usePartyB(
     partyA.state.input,
     partyA.state.languages[0] || 'en',
     hasUserInteractedRef.current,
-    hookPlaybackMode,
+    playbackMode,
     readingSpeed,
-    autoPlayActive,
-    !!partyA.state.currentlyPlayingKey // waitForExternalPlayback
+    autoPlayActive // isSimulationControlled
   );
 
   // 3. Logic Bridge: Connect Party A Submission to Party B Generation
@@ -131,6 +125,19 @@ export default function Home() {
   // History for Simulation Context
   const conversationHistoryRef = useRef<{ role: string, content: string }[]>([]);
 
+  // Refs for Party B state (for proper polling in waitForPartyBResponse)
+  const partyBResponseRef = useRef(partyB.state.response);
+  const partyBIsGeneratingRef = useRef(partyB.state.isGenerating);
+  const partyBIsTranslatingRef = useRef(partyB.state.isTranslating);
+  const partyBTranslationsRef = useRef(partyB.state.translations);
+
+  useEffect(() => {
+    partyBResponseRef.current = partyB.state.response;
+    partyBIsGeneratingRef.current = partyB.state.isGenerating;
+    partyBIsTranslatingRef.current = partyB.state.isTranslating;
+    partyBTranslationsRef.current = partyB.state.translations;
+  }, [partyB.state.response, partyB.state.isGenerating, partyB.state.isTranslating, partyB.state.translations]);
+
   // Typing Sound
   const typingSoundRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
@@ -157,6 +164,7 @@ export default function Home() {
 
           // Let's rely on the service ability or default logic.
           // We need to pass the history.
+          party_a_lang: partyA.state.languages[0] || 'en',
           history: currentHistory.map(h => ({
             role: h.role === 'party_a' ? 'user' : 'model',
             content: h.content
@@ -207,18 +215,25 @@ export default function Home() {
     submitMessage: async () => {
       return partyA.actions.handleManualSubmit();
     },
-    waitForPartyBResponse: async () => {
-      // Poll for Party B response completion
-      // Since Party B generation is triggered by useEffect on submission, we just wait.
+    getPartyBResponse: () => {
+      return partyBResponseRef.current;
+    },
+    waitForPartyBResponse: async (previousResponse: string) => {
+      // Poll for Party B response completion checking against previous known state
+      // This handles cases where response generation might be extremely fast or already in progress
+      console.log(`Waiting for Party B response... (Previous: "${previousResponse.substring(0, 20)}...")`);
+
       let attempts = 0;
       while (attempts < 600) { // 60s timeout
-        if (partyB.state.response && !partyB.state.isGenerating) {
-          // Wait a brief moment to ensure translations are ready if needed
-          if (partyB.state.isTranslating) {
-            await new Promise(r => setTimeout(r, 200));
-            continue;
-          }
-          return { response: partyB.state.response, translations: partyB.state.translations };
+        const currentResponse = partyBResponseRef.current;
+        const isGenerating = partyBIsGeneratingRef.current;
+        const isTranslating = partyBIsTranslatingRef.current;
+
+        // Check if we have a NEW response (different from previous) and generation/translation is complete
+        // Also check if currentResponse is truthy/valid
+        if (currentResponse && !isGenerating && !isTranslating && currentResponse !== previousResponse) {
+          console.log(`Got new Party B response: "${currentResponse.substring(0, 20)}..."`);
+          return { response: currentResponse, translations: partyBTranslationsRef.current };
         }
         await new Promise(r => setTimeout(r, 100));
         attempts++;
@@ -416,8 +431,8 @@ export default function Home() {
           onLanguagesChange={partyA.actions.setLanguages}
           audioEnabledLanguages={partyA.state.audioEnabledLanguages}
           onAudioEnabledChange={partyA.actions.setAudioEnabledLanguages}
-          currentlyPlayingKey={partyA.state.currentlyPlayingKey}
-          highlightedWordIndex={partyA.state.highlightedWordIndex}
+          currentlyPlayingKey={partyA.state.playbackState?.key || null}
+          highlightedWordIndex={partyA.state.playbackState?.wordIndex ?? -1}
           input={partyA.state.input}
           onInputChange={partyA.actions.handleInput}
           onSubmit={() => {
@@ -471,8 +486,8 @@ export default function Home() {
           onLanguagesChange={partyB.actions.setLanguages}
           audioEnabledLanguages={partyB.state.audioEnabledLanguages}
           onAudioEnabledChange={partyB.actions.setAudioEnabledLanguages}
-          currentlyPlayingKey={partyB.state.currentlyPlayingKey}
-          highlightedWordIndex={partyB.state.highlightedWordIndex}
+          currentlyPlayingKey={partyB.state.playbackState?.key || null}
+          highlightedWordIndex={partyB.state.playbackState?.wordIndex ?? -1}
           response={partyB.state.response}
           isGenerating={partyB.state.isGenerating}
           translations={partyB.state.translations}

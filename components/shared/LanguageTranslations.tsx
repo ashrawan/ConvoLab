@@ -15,7 +15,24 @@ interface LanguageTranslationsProps {
     showLastMessage?: boolean; // Show "Last Message" section
     hideSelector?: boolean; // Hide the language selector (for Party B)
     excludePrimary?: boolean; // Hide the primary language from the list (for Party B)
+    keyPrefix?: string; // Key prefix for translation keys (e.g., 'input-translation', 'response-translation')
+    highlightedWordIndex?: number; // For word-by-word highlighting
+    customStatus?: string | null; // For custom status text override
 }
+
+// Helper to render highlighted text preserving whitespace
+const renderHighlightedText = (text: string, activeIndex: number) => {
+    let wordCount = 0;
+    return text.split(/(\s+)/).map((part, i) => {
+        if (part.length > 0 && !part.match(/\s/)) {
+            const isActive = wordCount === activeIndex;
+            wordCount++;
+            return <span key={i} className={isActive ? "bg-primary/50 text-white shadow-[0_0_10px_rgba(139,92,246,0.3)] rounded px-1 -mx-1 transition-all duration-150" : ""}>{part}</span>;
+        }
+        // Use whitespace-pre-wrap to allow wrapping while preserving sequence
+        return <span key={i} className="whitespace-pre-wrap">{part}</span>;
+    });
+};
 
 // Inline AudioWave component
 const AudioWave = () => (
@@ -36,7 +53,10 @@ export default function LanguageTranslations({
     currentlyPlayingKey = null,
     showLastMessage = true,
     hideSelector = false,
-    excludePrimary = false
+    excludePrimary = false,
+    keyPrefix = 'translation',
+    highlightedWordIndex,
+    customStatus
 }: LanguageTranslationsProps) {
     const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
 
@@ -95,8 +115,8 @@ export default function LanguageTranslations({
                     {languagesToShow.map((lang, idx) => {
                         const isPrimary = lang === languages[0];
                         const text = isPrimary ? inputText : translations[lang];
-                        // Each translation row has its unique key
-                        const translationKey = `translation-${lang}`;
+                        // Each translation row has its unique key with the specified prefix
+                        const translationKey = `${keyPrefix}-${lang}`;
                         const isPlaying = currentlyPlayingKey === translationKey;
 
                         return (
@@ -121,7 +141,9 @@ export default function LanguageTranslations({
                                         {/* Speaking Indicator & Wave (Only visible here when playing) */}
                                         {isPlaying && (
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs text-primary font-medium uppercase tracking-wide shrink-0">Speaking...</span>
+                                                <span className={`text-xs font-medium uppercase tracking-wide shrink-0 ${customStatus ? 'text-amber-500' : 'text-primary'}`}>
+                                                    {customStatus || ((highlightedWordIndex !== undefined && highlightedWordIndex >= 0) ? 'Reading...' : 'Speaking...')}
+                                                </span>
                                                 <AudioWave />
                                             </div>
                                         )}
@@ -146,7 +168,11 @@ export default function LanguageTranslations({
                                     {!isPrimary && isTranslating ? (
                                         <span className="text-muted-foreground italic">Translating...</span>
                                     ) : text ? (
-                                        <span className={`${isPlaying ? 'whitespace-pre-wrap block' : 'truncate block'}`}>{text}</span>
+                                        <span className={`${isPlaying ? 'whitespace-pre-wrap block' : 'truncate block'}`}>
+                                            {isPlaying && highlightedWordIndex !== undefined && highlightedWordIndex >= 0
+                                                ? renderHighlightedText(text, highlightedWordIndex)
+                                                : text}
+                                        </span>
                                     ) : (
                                         <span className="text-muted-foreground">—</span>
                                     )}

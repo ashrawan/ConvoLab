@@ -2,10 +2,23 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { PhrasePrediction, getPhrasePredictions } from '@/lib/services/llm';
 import { translationService, sttService } from '@/lib/services';
 import { sequentialAudioPlayer } from '@/lib/utils/audio-player';
+import { playbackController, PlaybackMode, PlaybackItem } from '@/lib/utils/playback-controller';
 
-export type PlaybackMode = 'audio' | 'highlight' | 'delay' | 'manual';
+export type { PlaybackMode };
 
-export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: number = 180, pauseMicOnAudio: boolean = true) {
+// Coupled playback state - key and wordIndex are always synchronized
+export interface PlaybackState {
+    key: string;
+    wordIndex: number;  // -1 means audio playing (not highlighting)
+}
+
+export function usePartyA(
+    playbackMode: PlaybackMode = 'audio',
+    readingSpeed: number = 180,
+    pauseMicOnAudio: boolean = true,
+    isSimulationControlled: boolean = false
+) {
+
     // State
     const [context, setContext] = useState('');
     const [languages, setLanguages] = useState<string[]>(['en']);
@@ -23,11 +36,10 @@ export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: nu
     const [isTranslating, setIsTranslating] = useState(false);
     const [images] = useState<string[]>([]);
     const [audioEnabledLanguages, setAudioEnabledLanguages] = useState<string[]>(['en']);
-    // Changed: Track specific item being played (e.g., 'lastSent', 'translation-fr')
-    const [currentlyPlayingKey, setCurrentlyPlayingKey] = useState<string | null>(null);
+    // Coupled playback state: key and wordIndex are always synchronized
+    const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
     const [isPlayingSequence, setIsPlayingSequence] = useState(false);
-    // Simulation State
-    const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
+    // Custom status override (e.g., "TYPING...")
     const [customStatus, setCustomStatus] = useState<string | null>(null);
     const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -53,6 +65,7 @@ export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: nu
     const pauseMicOnAudioRef = useRef(pauseMicOnAudio);
     const isPhrasesCollapsedRef = useRef(isPhrasesCollapsed);
     const isTranslationsCollapsedRef = useRef(isTranslationsCollapsed);
+    const isSimulationControlledRef = useRef(isSimulationControlled);
     const debounceTimer = useRef<NodeJS.Timeout | null>(null);
     const submissionTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -66,98 +79,89 @@ export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: nu
     useEffect(() => { pauseMicOnAudioRef.current = pauseMicOnAudio; }, [pauseMicOnAudio]);
     useEffect(() => { isPhrasesCollapsedRef.current = isPhrasesCollapsed; }, [isPhrasesCollapsed]);
     useEffect(() => { isTranslationsCollapsedRef.current = isTranslationsCollapsed; }, [isTranslationsCollapsed]);
+    useEffect(() => { isSimulationControlledRef.current = isSimulationControlled; }, [isSimulationControlled]);
+
+    // Unmount cleanup
+    useEffect(() => {
+        return () => {
+            playbackController.stop();
+        };
+    }, []);
+
 
     // ============================================================================
-    // Internal Audio Helper
+    // Playback Callbacks (used by PlaybackController)
+    // ============================================================================
+    const playbackCallbacks = useCallback(() => ({
+        onPlayingKeyChange: (key: string | null) => {
+            if (key === null) {
+                setPlaybackState(null);
+            } else {
+                setPlaybackState(prev => prev?.key === key ? prev : { key, wordIndex: -1 });
+            }
+        },
+        onHighlightIndexChange: (index: number) => {
+            setPlaybackState(prev => prev ? { ...prev, wordIndex: index } : null);
+        }
+    }), []);
+
+    // ============================================================================
+    // Playback Functions using Centralized Controller
+    // ============================================================================
+    const simulatePlayback = useCallback(async (text: string, wpm: number, key: string = 'lastSent') => {
+        await playbackController.playItem(
+            { text, lang: languagesRef.current[0] || 'en', key },
+            'highlight',
+            playbackCallbacks(),
+            { wpm }
+        );
+    }, [playbackCallbacks]);
+
+    const triggerHighlight = simulatePlayback;
+
+    // ============================================================================
+    // Internal Audio Helper - Respects playback mode
     // ============================================================================
     const playBatchAudio = useCallback((text: string, translationsToPlay: Record<string, string>) => {
+        const mode = playbackModeRef.current;
         const sourceLang = languagesRef.current[0] || 'en';
         const targetLangs = languagesRef.current.slice(1);
-        const enabledLangs = audioEnabledLanguagesRef.current; // Use Ref for freshest state
+        const enabledLangs = audioEnabledLanguagesRef.current;
 
-        if (enabledLangs.length === 0) return Promise.resolve();
-
-        const queue: Array<{ text: string; lang: string; onStart: () => void; onEnd: () => void }> = [];
+        // Build sequence of items to play/highlight
+        const items: PlaybackItem[] = [];
 
         // Add primary language if enabled
         if (enabledLangs.includes(sourceLang)) {
-            queue.push({
-                text: text,
-                lang: sourceLang,
-                onStart: () => setCurrentlyPlayingKey('lastSent'),
-                onEnd: () => setCurrentlyPlayingKey(prev => prev === 'lastSent' ? null : prev)
-            });
+            items.push({ text, lang: sourceLang, key: 'lastSent' });
         }
 
         // Add translations for other enabled languages
         targetLangs.forEach(lang => {
             if (enabledLangs.includes(lang) && translationsToPlay[lang]) {
-                const key = `translation-${lang}`;
-                queue.push({
+                items.push({
                     text: translationsToPlay[lang],
-                    lang: lang,
-                    onStart: () => setCurrentlyPlayingKey(key),
-                    onEnd: () => setCurrentlyPlayingKey(prev => prev === key ? null : prev)
+                    lang,
+                    key: `sent-translation-${lang}`
                 });
             }
         });
 
-        if (queue.length > 0) {
-            console.log(`🔊 Playing ${queue.length} audio clips`);
-            setIsPlayingSequence(true);
-            return sequentialAudioPlayer.playSequentially(queue, 500).finally(() => {
-                setIsPlayingSequence(false);
-            });
-        }
-        return Promise.resolve();
-    }, []);
+        if (items.length === 0) return Promise.resolve();
 
-    // ============================================================================
-    // Playback Simulation (Highlighting)
-    // ============================================================================
-    const playbackResolverRef = useRef<(() => void) | null>(null);
+        console.log(`🔊 Playing ${items.length} items in ${mode} mode`);
+        setIsPlayingSequence(true);
 
-    const simulatePlayback = useCallback(async (text: string, wpm: number, key: string = 'lastSent') => {
-        if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-        // If there was a pending promise, resolve it now to prevent hanging
-        if (playbackResolverRef.current) {
-            playbackResolverRef.current();
-            playbackResolverRef.current = null;
-        }
-
-        setCurrentlyPlayingKey(key);
-        setHighlightedWordIndex(-1);
-
-        const words = text.split(/(\s+)/).filter(p => p.length > 0 && !p.match(/^\s+$/));
-        if (words.length === 0) return;
-
-        // Safety check: ensure wpm is reasonable
-        const safeWpm = Math.max(50, Math.min(1000, wpm));
-        const msPerWord = 60000 / safeWpm;
-
-        let currentIndex = 0;
-        return new Promise<void>((resolve) => {
-            playbackResolverRef.current = resolve;
-            setHighlightedWordIndex(0);
-
-            simulationIntervalRef.current = setInterval(() => {
-                currentIndex++;
-                if (currentIndex >= words.length) {
-                    if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-                    setCurrentlyPlayingKey(null);
-                    setHighlightedWordIndex(-1);
-                    if (playbackResolverRef.current) {
-                        playbackResolverRef.current();
-                        playbackResolverRef.current = null;
-                    }
-                } else {
-                    setHighlightedWordIndex(currentIndex);
-                }
-            }, msPerWord);
+        return playbackController.playSequence(
+            items,
+            mode,
+            playbackCallbacks(),
+            { wpm: readingSpeedRef.current, delayBetween: 500 }
+        ).finally(() => {
+            setIsPlayingSequence(false);
         });
-    }, []);
+    }, [playbackCallbacks]);
 
-    const triggerHighlight = simulatePlayback;
 
     // ============================================================================
     // Input Handlers & Unified AI Updates
@@ -391,36 +395,16 @@ export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: nu
             // Update translations state
             setLastSentTranslations(finalTranslations);
 
-            // Only auto-play if autoPlay is enabled (and not disabled by parent via prop, although handleManualSubmit is usually local)
-            // Actually, handleManualSubmit is called by useAutoPlay.
-            // If useAutoPlay calls it, we might NOT want to play audio here if we want imperative control?
-            // But useAutoPlay calls onSubmit AFTER typing.
-            // Current Logic: Check autoPlayRef.
-            // If we are in simulation, autoPlay prop passed to hook is FALSE.
-            // So autoPlayRef.current is FALSE.
-            // So this block is SKIPPED.
-            // useAutoPlay then calls playSequence IMPERATIVELY.
-            // This is correct.
-            if (playbackModeRef.current === 'audio') {
-                playBatchAudio(trimmed, finalTranslations);
-            } else if (playbackModeRef.current === 'highlight') {
-                // We need to define simulatePlayback in actions, but here we can just call the logic since we are inside the hook.
-                // But simulatePlayback is defined after. We can move it up or use a ref?
-                // Actually simulatePlayback is a useCallback below. We should hoist it or use a separate effect?
-                // Or just use the action from the hook return? No, we are inside.
-                // We'll trust that we can call the internal function if we define it before or hoist variables.
-                // Simpler: Use a useEffect to trigger actions based on submission? 
-                // No, existing pattern is imperative here.
-                // Let's call the simulatePlayback implementation directly.
-                // However, simulatePlayback is defined at line 555. Closures.
-                // We can't call it here easily without hoisting.
-                // Alternative: Use a standard ref/flag to trigger it in an effect, OR define simulatePlayback earlier.
-                // I will move simulatePlayback definition UP, or define a helper.
-                // For now, I'll rely on a TODO and fix it in a second pass? 
-                // No, I can't leave broken code.
-                // I will check if I can assume simulatePlayback is available. It's a const, so no hoisting.
-                // I must move simulatePlayback UP before handleManualSubmit.
+            // Playback based on mode (skip if simulation is controlling)
+            // - 'audio': auto-play audio
+            // - 'highlight': auto-highlight (no audio)
+            // - 'manual': NO auto-play - user explicitly clicks play button
+            if (!isSimulationControlledRef.current) {
+                if (playbackModeRef.current === 'audio' || playbackModeRef.current === 'highlight') {
+                    playBatchAudio(trimmed, finalTranslations);
+                }
             }
+            // 'manual' mode or simulation controlled: no auto-play
             resolve({ text: trimmed, translations: finalTranslations });
         });
     }, [input, playBatchAudio]); // Removed autoPlay/audioEnabledLanguages form dependency as we use refs
@@ -465,19 +449,19 @@ export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: nu
                         if (!buildModeRef.current) {
                             setSubmission({ text: newText, timestamp: Date.now() });
 
-                            // Only auto-play if enabled
+                            // Playback based on mode - only auto-play in 'audio' mode
                             if (playbackModeRef.current === 'audio' && audioEnabledLanguagesRef.current.includes(primaryLang)) {
                                 sequentialAudioPlayer.playSequentially([{
                                     text: newText,
                                     lang: primaryLang,
-                                    onStart: () => setCurrentlyPlayingKey('lastSent'),
-                                    onEnd: () => setCurrentlyPlayingKey(prev => prev === 'lastSent' ? null : prev)
+                                    onStart: () => setPlaybackState({ key: 'lastSent', wordIndex: -1 }),
+                                    onEnd: () => setPlaybackState(prev => prev?.key === 'lastSent' ? null : prev)
                                 }]).finally(() => setIsPlayingSequence(false));
                                 setIsPlayingSequence(true);
                             } else if (playbackModeRef.current === 'highlight') {
-                                // Will be handled by moving simulatePlayback up
                                 triggerHighlight(newText, readingSpeedRef.current);
                             }
+                            // 'manual' mode: no auto-playback - user explicitly clicks play
                         }
                     } else {
                         setAudioTranscript(text);
@@ -580,12 +564,13 @@ export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: nu
             setLastSentTranslations({});
         }
 
-        // Handle Audio Queue
+        // Handle Playback based on mode - only auto-play in 'audio' mode
         if (playbackModeRef.current === 'audio') {
             playBatchAudio(phrase, phraseTranslations);
         } else if (playbackModeRef.current === 'highlight') {
             triggerHighlight(phrase, readingSpeedRef.current);
         }
+        // 'manual' mode: no auto-playback - user explicitly clicks play
 
         // Trigger submission
         setSubmission({ text: phrase, timestamp: Date.now() });
@@ -593,19 +578,20 @@ export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: nu
     }, [playbackMode, playBatchAudio, updateAI]); // Updated dependency
 
     // playAudio now takes a key to identify what's being played
+    // Respects playback mode: highlight mode does NOT play audio
     const playAudio = useCallback((text: string, lang: string, key: string) => {
-        sequentialAudioPlayer.playSequentially([{
-            text,
-            lang,
-            onStart: () => setCurrentlyPlayingKey(key),
-            onEnd: () => setCurrentlyPlayingKey(prev => prev === key ? null : prev)
-        }]).finally(() => {
-            // Optional: setIsPlayingSequence(false) if we want to track single plays too? 
-            // Yes, for consistency.
+        const mode = playbackModeRef.current;
+        setIsPlayingSequence(true);
+
+        playbackController.playItem(
+            { text, lang, key },
+            mode,
+            playbackCallbacks(),
+            { wpm: readingSpeedRef.current }
+        ).finally(() => {
             setIsPlayingSequence(false);
         });
-        setIsPlayingSequence(true);
-    }, []);
+    }, [playbackCallbacks]);
 
     // Explicitly play sequence for current submission
     const playSequence = useCallback(async (text: string, translations: Record<string, string>) => {
@@ -621,35 +607,29 @@ export function usePartyA(playbackMode: PlaybackMode = 'audio', readingSpeed: nu
         setTranslations({});
         setAudioTranscript('');
         setSubmission(null);
-        setHighlightedWordIndex(-1);
+        setPlaybackState(null);
         setCustomStatus(null);
         if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
     };
 
     const stopSimulation = useCallback(() => {
-        if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-        setCurrentlyPlayingKey(null);
-        setHighlightedWordIndex(-1);
+        playbackController.stop();
+        setPlaybackState(null);
         setCustomStatus(null);
-        if (playbackResolverRef.current) {
-            playbackResolverRef.current();
-            playbackResolverRef.current = null;
-        }
     }, []);
 
     const stopAllAudio = useCallback(() => {
-        sequentialAudioPlayer.cancel();
-        setCurrentlyPlayingKey(null);
-        stopSimulation();
-    }, [stopSimulation]);
+        playbackController.stop();
+        setPlaybackState(null);
+    }, []);
 
     return {
         state: {
             context, languages, input, predictions, videoActive, audioActive,
             audioTranscript, isLoading: isLoadingPredictions, translations, lastSentTranslations, isTranslating, images,
-            audioEnabledLanguages, currentlyPlayingKey, buildMode,
+            audioEnabledLanguages, playbackState, buildMode,
             submission, isPhrasesCollapsed, isTranslationsCollapsed, isPlayingSequence,
-            highlightedWordIndex, customStatus, videoRef
+            customStatus, videoRef
         },
         actions: {
             setContext, setLanguages: setLanguagesWithPersistence, setInput,

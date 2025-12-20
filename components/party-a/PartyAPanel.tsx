@@ -72,33 +72,42 @@ export default function PartyAPanel({
     audioEnabledLanguages,
     onAudioEnabledChange,
     currentlyPlayingKey,
+    // Passed from page.tsx (via usePartyA coupled state)
     highlightedWordIndex,
     customStatus,
+
     input,
     onInputChange,
     onSubmit,
+    lastSubmission,
+
     audioActive,
     onToggleAudio,
     audioTranscript,
+
     buildMode,
     onBuildModeToggle,
+
     predictions,
     isLoadingPredictions,
     onSelectPhrase,
+
     translations,
     lastSentTranslations,
     isTranslating,
     onPlayAudio,
     onStopAudio,
+
     images,
+
     videoActive,
     onVideoToggle,
     videoRef,
-    lastSubmission,
+
     isPhrasesCollapsed = true,
     onTogglePhrases,
     isTranslationsCollapsed = true,
-    onToggleTranslations
+    onToggleTranslations,
 }: PartyAPanelProps) {
     // Resizable top section height (in pixels, will be calculated from container)
     const containerRef = useRef<HTMLDivElement>(null);
@@ -234,6 +243,9 @@ export default function PartyAPanel({
                                 currentlyPlayingKey={currentlyPlayingKey}
                                 hideSelector={true}
                                 showLastMessage={false}
+                                keyPrefix="input-translation"
+                                highlightedWordIndex={highlightedWordIndex}
+                                customStatus={customStatus}
                             />
                         </div>
                     </>

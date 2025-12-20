@@ -16,7 +16,7 @@ interface TTSSettingsProps {
     onDelayMultiplierChange: (multiplier: number) => void;
     showTypingEffect: boolean;
     onShowTypingEffectChange: (show: boolean) => void;
-    className?: string; // Add className prop
+    className?: string;
 }
 
 export function TTSSettings({
@@ -56,6 +56,10 @@ export function TTSSettings({
     }, [isOpen]);
 
     useEffect(() => {
+        // Sync state with services immediately on mount
+        setTTSProvider(ttsService.getProviderType());
+        setSTTProvider(sttService.getProviderType());
+
         // Init health check
         const performHealthCheck = async () => {
             const result = await checkApiHealth();
@@ -83,16 +87,18 @@ export function TTSSettings({
     }, []);
 
     const handleTTSProviderChange = (newProvider: TTSProviderType) => {
+        setTTSProvider(newProvider);
         ttsService.setProvider(newProvider);
     };
 
     const handleSTTProviderChange = (newProvider: STTProviderType) => {
+        setSTTProvider(newProvider);
         sttService.setProvider(newProvider);
     };
 
     const getHealthColor = () => {
         switch (health.status) {
-            case 'healthy': return 'bg-blue-500';
+            case 'healthy': return 'bg-green-500';
             case 'degraded': return 'bg-amber-500';
             case 'ngrok-interposer': return 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse';
             case 'error': return 'bg-red-500';
@@ -249,21 +255,27 @@ export function TTSSettings({
                                 <div className="flex bg-muted rounded-lg p-1 gap-1">
                                     <button
                                         onClick={() => handleSTTProviderChange('browser')}
-                                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${sttProvider === 'browser'
+                                        className={`relative group flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${sttProvider === 'browser'
                                             ? 'bg-background text-foreground shadow-sm'
                                             : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                                             }`}
                                     >
                                         Offline
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none shadow-xl z-50 w-max max-w-[200px] text-center">
+                                            Uses Browser/System Built in functionality
+                                        </div>
                                     </button>
                                     <button
                                         onClick={() => handleSTTProviderChange('api')}
-                                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${sttProvider === 'api'
+                                        className={`relative group flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${sttProvider === 'api'
                                             ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30 shadow-sm'
                                             : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                                             }`}
                                     >
                                         API
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none shadow-xl z-50 w-max max-w-[200px] text-center">
+                                            Makes server call and uses AI to process
+                                        </div>
                                     </button>
                                 </div>
                             </div>
@@ -285,21 +297,27 @@ export function TTSSettings({
                                 <div className="flex bg-muted rounded-lg p-1 gap-1">
                                     <button
                                         onClick={() => handleTTSProviderChange('browser')}
-                                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${ttsProvider === 'browser'
+                                        className={`relative group flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${ttsProvider === 'browser'
                                             ? 'bg-background text-foreground shadow-sm'
                                             : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                                             }`}
                                     >
                                         Offline
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none shadow-xl z-50 w-max max-w-[200px] text-center">
+                                            Uses Browser/System Built in functionality
+                                        </div>
                                     </button>
                                     <button
                                         onClick={() => handleTTSProviderChange('api')}
-                                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${ttsProvider === 'api'
+                                        className={`relative group flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${ttsProvider === 'api'
                                             ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30 shadow-sm'
                                             : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                                             }`}
                                     >
                                         API
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none shadow-xl z-50 w-max max-w-[200px] text-center">
+                                            Makes server call and uses AI to process
+                                        </div>
                                     </button>
                                 </div>
 
@@ -340,48 +358,27 @@ export function TTSSettings({
                                                 : 'text-muted-foreground hover:text-foreground'
                                                 }`}
                                         >
-                                            {mode === 'audio' ? 'Auto Audio' : mode === 'highlight' ? 'Auto Highlight' : 'Manual'}
+                                            {mode === 'audio' ? 'Auto Audio' : mode === 'highlight' ? 'Auto Highlight' : 'Manual (audio)'}
                                         </button>
                                     ))}
                                 </div>
 
-                                {/* Speed Settings */}
-                                {(playbackMode === 'highlight' || playbackMode === 'manual') && (
+                                {/* Speed Settings - Only for Highlight mode */}
+                                {playbackMode === 'highlight' && (
                                     <div className="px-1">
-                                        {playbackMode === 'highlight' && (
-                                            <>
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-sm text-foreground">Highlight Speed</span>
-                                                    <span className="text-[10px] text-muted-foreground">{readingSpeed} WPM</span>
-                                                </div>
-                                                <input
-                                                    type="range"
-                                                    min="100"
-                                                    max="600"
-                                                    step="10"
-                                                    value={readingSpeed}
-                                                    onChange={(e) => onReadingSpeedChange(parseInt(e.target.value))}
-                                                    className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                                                />
-                                            </>
-                                        )}
-                                        {playbackMode === 'manual' && (
-                                            <>
-                                                <div className="flex justify-between items-center mb-2">
-                                                    <span className="text-sm text-foreground">Simulation Delay</span>
-                                                    <span className="text-[10px] text-muted-foreground">{delayMultiplier}x</span>
-                                                </div>
-                                                <input
-                                                    type="range"
-                                                    min="0"
-                                                    max="10"
-                                                    step="1"
-                                                    value={delayMultiplier}
-                                                    onChange={(e) => onDelayMultiplierChange(parseFloat(e.target.value))}
-                                                    className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                                                />
-                                            </>
-                                        )}
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-sm text-foreground">Highlight Speed</span>
+                                            <span className="text-[10px] text-muted-foreground">{readingSpeed} WPM</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="100"
+                                            max="600"
+                                            step="10"
+                                            value={readingSpeed}
+                                            onChange={(e) => onReadingSpeedChange(parseInt(e.target.value))}
+                                            className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
                                     </div>
                                 )}
 

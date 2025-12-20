@@ -12,6 +12,7 @@ export class APITTSProvider implements TTSProvider {
     name = 'api';
     private currentRequestId: number = 0;
     private activeOnEnd: (() => void) | null = null;
+    private abortController: AbortController | null = null;
 
     // Singleton audio element to support mobile auto-play policies
     private static audioElement: HTMLAudioElement | null = null;
@@ -44,7 +45,14 @@ export class APITTSProvider implements TTSProvider {
             audio.onplay = null;
             audio.onended = null;
             audio.onerror = null;
+            audio.onerror = null;
             // Don't nullify the static element, just stop it
+        }
+
+        // Cancel pending network request
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
         }
 
         // CRITICAL: Always trigger the pending completion callback if there is one
@@ -69,6 +77,7 @@ export class APITTSProvider implements TTSProvider {
 
         // 2. Store the new completion callback
         this.activeOnEnd = options.onEnd || null;
+        this.abortController = new AbortController();
 
         console.log(`🎵 API TTS (req ${requestId}): "${text.substring(0, 50)}..." (${lang})`);
 
@@ -84,7 +93,8 @@ export class APITTSProvider implements TTSProvider {
                     text,
                     lang: getSpeechLang(lang),
                     speed: options.rate || 1.0
-                })
+                }),
+                signal: this.abortController.signal
             });
 
             // Check if we've been cancelled while fetching
@@ -153,8 +163,12 @@ export class APITTSProvider implements TTSProvider {
 
             await audio.play();
 
-        } catch (error) {
-            console.error(`❌ API TTS error (req ${requestId}):`, error);
+        } catch (error: any) {
+            if (error.name === 'AbortError') {
+                console.log(`🚫 API TTS cancelled (req ${requestId})`);
+            } else {
+                console.error(`❌ API TTS error (req ${requestId}):`, error);
+            }
 
             // Only call error callbacks if this is still the active request
             if (requestId === this.currentRequestId) {
@@ -164,6 +178,10 @@ export class APITTSProvider implements TTSProvider {
 
             // We don't rethrow here because the callback was handled, 
             // allowing the sequential player to proceed to next item if necessary.
+        } finally {
+            if (requestId === this.currentRequestId) {
+                this.abortController = null;
+            }
         }
     }
 }

@@ -5,22 +5,19 @@ export type SimulationPhase =
     | 'generating_input'
     | 'typing_input'
     | 'submitting'
-    | 'party_a_audio'
+    | 'playing_party_a'
+    | 'playing_party_a_translations'
     | 'waiting_party_b'
-    | 'party_b_audio'
-    | 'highlighting_a'
-    | 'highlighting_a'
-    | 'highlighting_b'
-    | 'highlighting_b'
-    | 'delay_a'
-    | 'delay_b';
+    | 'playing_party_b'
+    | 'playing_party_b_translations';
 
 export interface SimulationDelegate {
     // Core Actions
     predictNextMessage: (history: any[], summary: string) => Promise<string | null>;
     typeMessage: (text: string) => Promise<boolean>; // Returns true if completed, false if cancelled
     submitMessage: () => Promise<{ text: string, translations: Record<string, string> } | void>;
-    waitForPartyBResponse: () => Promise<{ response: string, translations: Record<string, string> } | null>;
+    getPartyBResponse: () => string; // To capture state before submission
+    waitForPartyBResponse: (previousResponse: string) => Promise<{ response: string, translations: Record<string, string> } | null>;
 
     // Audio Actions
     playPartyAAudio: (text: string, translations: Record<string, string>) => Promise<void>;
@@ -134,6 +131,10 @@ export function useSimulationManager({ delegate, maxCycles = 5, playbackMode, de
                 setState(prev => ({ ...prev, phase: 'submitting' }));
                 console.log('Phase: Submitting');
 
+                // Capture previous response BEFORE submitting to handle potential race conditions
+                // where response might generate quickly before we get to waiting phase
+                const previousPartyBResponse = delegateRef.current.getPartyBResponse();
+
                 delegateRef.current.addToHistory('party_a', nextMessage);
                 const submissionResult = await delegateRef.current.submitMessage();
 
@@ -144,22 +145,17 @@ export function useSimulationManager({ delegate, maxCycles = 5, playbackMode, de
                 const currentSpeed = speedRef.current;
                 const currentDelayMult = delayRef.current;
 
-                // Audio or Highlight or Delay
+                // Audio or Highlight - only auto-play in 'audio' mode
                 if (currentMode === 'audio' && submissionResult) {
-                    setState(prev => ({ ...prev, phase: 'party_a_audio' }));
+                    setState(prev => ({ ...prev, phase: 'playing_party_a' }));
                     await delegateRef.current.playPartyAAudio(submissionResult.text, submissionResult.translations);
                 } else if (currentMode === 'highlight') {
-                    setState(prev => ({ ...prev, phase: 'highlighting_a', highlightTarget: 'party_a' }));
+                    // Highlight mode: just visually highlight without audio
+                    setState(prev => ({ ...prev, phase: 'playing_party_a', highlightTarget: 'party_a' }));
                     await delegateRef.current.highlightText(nextMessage, 'party_a', currentSpeed);
                     setState(prev => ({ ...prev, highlightTarget: null }));
-                } else if (currentMode === 'manual') {
-                    setState(prev => ({ ...prev, phase: 'delay_a' }));
-                    // Just wait based on text length * delayMultiplier
-                    const wordCount = nextMessage.split(' ').length;
-                    const baseDelay = wordCount * 200; // 200ms per word rough base ~300wpm
-                    const delay = baseDelay * currentDelayMult;
-                    await delegateRef.current.waitWithCountdown('party_a', Math.max(1000, delay));
                 }
+                // 'manual' mode: no auto-playback in simulation - proceed to next phase
 
                 await safeDelay(500);
                 if (cancelRef.current) break;
@@ -170,7 +166,10 @@ export function useSimulationManager({ delegate, maxCycles = 5, playbackMode, de
                 setState(prev => ({ ...prev, phase: 'waiting_party_b' }));
                 console.log('Phase: Waiting for Party B');
 
-                const partyBResult = await delegateRef.current.waitForPartyBResponse();
+                setState(prev => ({ ...prev, phase: 'waiting_party_b' }));
+                console.log('Phase: Waiting for Party B');
+
+                const partyBResult = await delegateRef.current.waitForPartyBResponse(previousPartyBResponse);
                 if (!partyBResult || cancelRef.current) {
                     console.log('⚠️ Party B did not respond');
                     // Potentially continue or break? Breaking is safer.
@@ -187,19 +186,15 @@ export function useSimulationManager({ delegate, maxCycles = 5, playbackMode, de
                 const currentDelayMultB = delayRef.current;
 
                 if (currentModeB === 'audio') {
-                    setState(prev => ({ ...prev, phase: 'party_b_audio' }));
+                    setState(prev => ({ ...prev, phase: 'playing_party_b' }));
                     await delegateRef.current.playPartyBAudio(partyBResult.response, partyBResult.translations);
                 } else if (currentModeB === 'highlight') {
-                    setState(prev => ({ ...prev, phase: 'highlighting_b', highlightTarget: 'party_b' }));
+                    // Highlight mode: just visually highlight without audio
+                    setState(prev => ({ ...prev, phase: 'playing_party_b', highlightTarget: 'party_b' }));
                     await delegateRef.current.highlightText(partyBResult.response, 'party_b', currentSpeedB);
                     setState(prev => ({ ...prev, highlightTarget: null }));
-                } else if (currentModeB === 'manual') {
-                    setState(prev => ({ ...prev, phase: 'delay_b' }));
-                    const wordCount = partyBResult.response.split(' ').length;
-                    const baseDelay = wordCount * 200;
-                    const delay = baseDelay * currentDelayMultB;
-                    await delegateRef.current.waitWithCountdown('party_b', Math.max(1000, delay));
                 }
+                // 'manual' mode: no auto-playback in simulation - proceed to next cycle
 
                 currentCycle++;
                 if (currentCycle >= maxCycles) {

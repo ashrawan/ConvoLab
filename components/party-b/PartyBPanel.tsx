@@ -94,8 +94,9 @@ export default function PartyBPanel({
 }: PartyBPanelProps) {
     // Check if the main response is playing (key='response')
     const isPlayingMain = currentlyPlayingKey === 'response';
-    const isReading = highlightedWordIndex !== undefined && highlightedWordIndex >= 0;
-    const showActiveState = isPlayingMain || isReading || !!customStatus;
+    // Only show reading state if highlighting the main response (not a translation)
+    const isReadingMain = highlightedWordIndex !== undefined && highlightedWordIndex >= 0 && currentlyPlayingKey === 'response';
+    const showActiveState = isPlayingMain || isReadingMain || (!!customStatus && currentlyPlayingKey === 'response');
 
     // Resizable top section height (in pixels)
     const containerRef = useRef<HTMLDivElement>(null);
@@ -153,22 +154,22 @@ export default function PartyBPanel({
                     {showActiveState && response && (
                         <div className="flex items-center gap-2 mb-2 opacity-80">
                             <span className={`text-[10px] uppercase tracking-wider font-bold ${customStatus ? 'text-amber-500' :
-                                isReading ? 'text-blue-700 dark:text-blue-400' :
+                                isReadingMain ? 'text-blue-700 dark:text-blue-400' :
                                     'text-violet-700 dark:text-violet-400'
                                 }`}>
-                                {customStatus || (isReading ? 'Reading...' : 'Speaking...')}
+                                {customStatus || (isReadingMain ? 'Reading...' : 'Speaking...')}
                             </span>
                             <span className="flex gap-0.5 items-end h-2.5">
                                 <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${customStatus ? 'bg-amber-500' :
-                                    isReading ? 'bg-blue-600 dark:bg-blue-400' :
+                                    isReadingMain ? 'bg-blue-600 dark:bg-blue-400' :
                                         'bg-violet-600 dark:bg-violet-400'
                                     }`}></span>
                                 <span className={`w-0.5 h-2.5 animate-[pulse_0.8s_infinite] ${customStatus ? 'bg-amber-500' :
-                                    isReading ? 'bg-blue-600 dark:bg-blue-400' :
+                                    isReadingMain ? 'bg-blue-600 dark:bg-blue-400' :
                                         'bg-violet-600 dark:bg-violet-400'
                                     }`}></span>
                                 <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${customStatus ? 'bg-amber-500' :
-                                    isReading ? 'bg-blue-600 dark:bg-blue-400' :
+                                    isReadingMain ? 'bg-blue-600 dark:bg-blue-400' :
                                         'bg-violet-600 dark:bg-violet-400'
                                     }`}></span>
                             </span>
@@ -180,7 +181,7 @@ export default function PartyBPanel({
                         isPlayingMain ? 'text-violet-700 dark:text-violet-400' :
                             'text-blue-700 dark:text-blue-400'
                         }`}>
-                        {highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
+                        {currentlyPlayingKey === 'response' && highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
                             renderHighlightedText(response, highlightedWordIndex)
                         ) : response ? (
                             <ReactMarkdown
@@ -265,6 +266,10 @@ export default function PartyBPanel({
                                 showLastMessage={false}
                                 hideSelector={true}
                                 excludePrimary={true}
+
+                                keyPrefix="response-translation"
+                                highlightedWordIndex={highlightedWordIndex}
+                                customStatus={customStatus}
                             />
                         </div>
                     </>

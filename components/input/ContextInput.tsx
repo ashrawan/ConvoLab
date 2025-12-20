@@ -194,25 +194,23 @@ export default function ContextInput({
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-1">
-                                                        {/* Audio Toggle - Show for all languages in both parties */}
+                                                        {/* Playback Toggle - Show for all languages in both parties */}
                                                         <button
                                                             onClick={() => toggleAudio(lang)}
                                                             className={`p-1 rounded transition ${isAudioEnabled
                                                                 ? 'text-blue-700 dark:text-blue-400 hover:bg-blue-500/10'
                                                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                                                                 }`}
-                                                            title={isAudioEnabled ? 'Auto-play ON' : 'Auto-play OFF'}
+                                                            title={isAudioEnabled ? 'Playback ON' : 'Playback OFF'}
                                                         >
                                                             {isAudioEnabled ? (
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                                                    <path d="M8 5v14l11-7z" />
                                                                 </svg>
                                                             ) : (
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                                                    <line x1="23" y1="9" x2="17" y2="15"></line>
-                                                                    <line x1="17" y1="9" x2="23" y2="15"></line>
+                                                                    <circle cx="12" cy="12" r="10" />
+                                                                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                                                                 </svg>
                                                             )}
                                                         </button>

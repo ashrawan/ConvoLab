@@ -2,10 +2,22 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { PhrasePrediction, chatService, getConversationSuggestions } from '@/lib/services/llm';
 import { translationService } from '@/lib/services';
 import { sequentialAudioPlayer } from '@/lib/utils/audio-player';
+import { playbackController, PlaybackMode, PlaybackItem } from '@/lib/utils/playback-controller';
 
-export type PlaybackMode = 'audio' | 'highlight' | 'delay' | 'manual';
+export type { PlaybackMode };
 
-export function usePartyB(partyAInput: string, sourceLang: string, hasUserInteracted: boolean, playbackMode: PlaybackMode = 'audio', readingSpeed: number = 180, autoPlayActive: boolean = false, waitForExternalPlayback: boolean = false) {
+// Import PlaybackState from usePartyA for consistency
+import type { PlaybackState } from './usePartyA';
+export type { PlaybackState };
+
+export function usePartyB(
+    partyAInput: string,
+    sourceLang: string,
+    hasUserInteracted: boolean,
+    playbackMode: PlaybackMode = 'audio',
+    readingSpeed: number = 180,
+    isSimulationControlled: boolean = false
+) {
     // State
     const [context, setContext] = useState('');
     const [languages, setLanguages] = useState<string[]>(['en']);
@@ -19,10 +31,10 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     const [isTranslating, setIsOutputTranslating] = useState(false);
     const [images] = useState<string[]>([]);
     const [audioEnabledLanguages, setAudioEnabledLanguages] = useState<string[]>(['en']);
-    const [currentlyPlayingKey, setCurrentlyPlayingKey] = useState<string | null>(null);
+    // Coupled playback state: key and wordIndex are always synchronized
+    const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
     const [isPlayingSequence, setIsPlayingSequence] = useState(false);
-    // Simulation State
-    const [highlightedWordIndex, setHighlightedWordIndex] = useState<number>(-1);
+    // Custom status override
     const [customStatus, setCustomStatus] = useState<string | null>(null);
     const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -41,9 +53,14 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     const lastSuggestionResponse = useRef<string>('');
     const lastUserInputRef = useRef<string>('');
     const isTranslationsCollapsedRef = useRef(isTranslationsCollapsed);
-    const pendingSimulatePlaybackRef = useRef<{ text: string; speed: number } | null>(null);
+    const playbackModeRef = useRef(playbackMode);
+    const readingSpeedRef = useRef(readingSpeed);
+    const isSimulationControlledRef = useRef(isSimulationControlled);
 
     useEffect(() => { isTranslationsCollapsedRef.current = isTranslationsCollapsed; }, [isTranslationsCollapsed]);
+    useEffect(() => { playbackModeRef.current = playbackMode; }, [playbackMode]);
+    useEffect(() => { readingSpeedRef.current = readingSpeed; }, [readingSpeed]);
+    useEffect(() => { isSimulationControlledRef.current = isSimulationControlled; }, [isSimulationControlled]);
 
     // Load Languages from Local Storage
     useEffect(() => {
@@ -200,97 +217,86 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
         };
 
         translateEffect();
+
     }, [isTranslationsCollapsed, response, isGenerating, languages, translations]);
 
+    // Unmount cleanup
+    useEffect(() => {
+        return () => {
+            playbackController.stop();
+        };
+    }, []);
+
     // ============================================================================
-    // Internal Audio Helper
+    // Playback Callbacks (used by PlaybackController)
+    // ============================================================================
+    const playbackCallbacks = useCallback(() => ({
+        onPlayingKeyChange: (key: string | null) => {
+            if (key === null) {
+                setPlaybackState(null);
+            } else {
+                setPlaybackState(prev => prev?.key === key ? prev : { key, wordIndex: -1 });
+            }
+        },
+        onHighlightIndexChange: (index: number) => {
+            setPlaybackState(prev => prev ? { ...prev, wordIndex: index } : null);
+        }
+    }), []);
+
+    // ============================================================================
+    // Playback Functions using Centralized Controller
+    // ============================================================================
+    const simulatePlayback = useCallback(async (text: string, wpm: number, key: string = 'response') => {
+        await playbackController.playItem(
+            { text, lang: languages[0] || 'en', key },
+            'highlight',
+            playbackCallbacks(),
+            { wpm }
+        );
+    }, [languages, playbackCallbacks]);
+
+    // ============================================================================
+    // Internal Audio Helper - Respects playback mode
     // ============================================================================
     const playBatchAudio = useCallback((text: string, translationsToPlay: Record<string, string>) => {
-        const enabledLangs = audioEnabledLanguages; // Use state as it changes infrequently
-
-        if (enabledLangs.length === 0) return Promise.resolve();
-
-        const queue: Array<{ text: string; lang: string; onStart: () => void; onEnd: () => void }> = [];
+        const mode = playbackModeRef.current;
+        const enabledLangs = audioEnabledLanguages;
         const src = languages[0];
         const targets = languages.slice(1);
 
-        // Play main response first
+        // Build sequence of items to play/highlight
+        const items: PlaybackItem[] = [];
+
+        // Add primary response if enabled
         if (enabledLangs.includes(src)) {
-            queue.push({
-                text: text,
-                lang: src,
-                onStart: () => setCurrentlyPlayingKey('response'),
-                onEnd: () => setCurrentlyPlayingKey(prev => prev === 'response' ? null : prev)
-            });
+            items.push({ text, lang: src, key: 'response' });
         }
 
-        // Then play translations
+        // Add translations for enabled languages
         targets.forEach(lang => {
             if (enabledLangs.includes(lang) && translationsToPlay[lang]) {
-                const key = `translation-${lang}`;
-                queue.push({
+                items.push({
                     text: translationsToPlay[lang],
-                    lang: lang,
-                    onStart: () => setCurrentlyPlayingKey(key),
-                    onEnd: () => setCurrentlyPlayingKey(prev => prev === key ? null : prev)
+                    lang,
+                    key: `response-translation-${lang}`
                 });
             }
         });
 
-        if (queue.length > 0) {
-            console.log(`🔊 Playing ${queue.length} Party B audio clips`);
-            setIsPlayingSequence(true);
-            return sequentialAudioPlayer.playSequentially(queue, 500, { cancel: false }).finally(() => {
-                setIsPlayingSequence(false);
-            });
-        }
-        return Promise.resolve();
-    }, [audioEnabledLanguages, languages]);
+        if (items.length === 0) return Promise.resolve();
 
-    // ============================================================================
-    // Simulation Actions (Moved Up for usage in Effect)
-    // ============================================================================
-    const playbackResolverRef = useRef<(() => void) | null>(null);
+        console.log(`🔊 Playing ${items.length} Party B items in ${mode} mode`);
+        setIsPlayingSequence(true);
 
-    const simulatePlayback = useCallback(async (text: string, wpm: number, key: string = 'response') => {
-        // Clear any existing
-        if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-        if (playbackResolverRef.current) {
-            playbackResolverRef.current();
-            playbackResolverRef.current = null;
-        }
-
-        setCurrentlyPlayingKey(key);
-        setHighlightedWordIndex(-1);
-
-        const words = text.split(/(\s+)/).filter(p => p.length > 0 && !p.match(/^\s+$/));
-        if (words.length === 0) return;
-
-        // Safety check: ensure wpm is reasonable
-        const safeWpm = Math.max(50, Math.min(1000, wpm));
-        const msPerWord = 60000 / safeWpm;
-
-        let currentIndex = 0;
-        return new Promise<void>((resolve) => {
-            playbackResolverRef.current = resolve;
-            setHighlightedWordIndex(0);
-
-            simulationIntervalRef.current = setInterval(() => {
-                currentIndex++;
-                if (currentIndex >= words.length) {
-                    if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-                    setCurrentlyPlayingKey(null);
-                    setHighlightedWordIndex(-1);
-                    if (playbackResolverRef.current) {
-                        playbackResolverRef.current();
-                        playbackResolverRef.current = null;
-                    }
-                } else {
-                    setHighlightedWordIndex(currentIndex);
-                }
-            }, msPerWord);
+        return playbackController.playSequence(
+            items,
+            mode,
+            playbackCallbacks(),
+            { wpm: readingSpeedRef.current, delayBetween: 500 }
+        ).finally(() => {
+            setIsPlayingSequence(false);
         });
-    }, []);
+    }, [audioEnabledLanguages, languages, playbackCallbacks]);
 
     // ============================================================================
     // Audio Playback Effect (only when autoPlay is enabled)
@@ -301,12 +307,12 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     }, [playBatchAudio]);
 
     // ============================================================================
-    // Audio Playback Effect (only when autoPlay logic is active internally)
+    // Audio Playback Effect (only when auto-play is enabled and NOT simulation controlled)
     // ============================================================================
     useEffect(() => {
-        // Skip auto-play if disabled via prop (e.g. during simulation mode where we control manually)
-        // Or if mode is manual
-        if (playbackMode === 'manual' || playbackMode === 'delay') return;
+        // Skip auto-play if mode is 'manual' or simulation is in control
+        if (playbackMode === 'manual') return;
+        if (isSimulationControlledRef.current) return;
 
         if (isGenerating || isTranslating) return;
         if (!response || response === lastPlayedResponse.current) return;
@@ -321,29 +327,10 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
 
         lastPlayedResponse.current = response;
 
-        if (playbackMode === 'audio') {
-            playBatchAudio(response, translations);
-        } else if (playbackMode === 'highlight') {
-            if (waitForExternalPlayback) {
-                // Queue it
-                console.log('⏳ Queuing Party B Highlight (Waiting for Party A)');
-                pendingSimulatePlaybackRef.current = { text: response, speed: readingSpeed };
-            } else {
-                simulatePlayback(response, readingSpeed);
-            }
-        }
+        // Auto-play using playBatchAudio (which respects the mode)
+        playBatchAudio(response, translations);
 
-    }, [response, translations, languages, isGenerating, isTranslating, hasUserInteracted, playbackMode, playBatchAudio, audioEnabledLanguages.length, simulatePlayback, readingSpeed, waitForExternalPlayback]);
-
-    // Effect to trigger pending highlight when external playback stops
-    useEffect(() => {
-        if (!waitForExternalPlayback && pendingSimulatePlaybackRef.current) {
-            console.log('▶️ Triggering Queued Party B Highlight');
-            const { text, speed } = pendingSimulatePlaybackRef.current;
-            pendingSimulatePlaybackRef.current = null;
-            simulatePlayback(text, speed);
-        }
-    }, [waitForExternalPlayback, simulatePlayback]);
+    }, [response, translations, languages, isGenerating, isTranslating, hasUserInteracted, playbackMode, playBatchAudio, audioEnabledLanguages.length]);
 
     // ============================================================================
     // Suggestions
@@ -400,7 +387,7 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
 
         const timeout = setTimeout(fetchSuggestions, 1000);
         return () => clearTimeout(timeout);
-    }, [response, isGenerating, sourceLang, languages, autoPlayActive, isSparksCollapsed, conversationSuggestions.length]);
+    }, [response, isGenerating, sourceLang, languages, isSparksCollapsed, conversationSuggestions.length]);
 
     // ============================================================================
     // Video
@@ -439,15 +426,20 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
     }, []);
 
     // playAudio now takes a key to identify what's being played
+    // Respects playback mode
     const playAudio = useCallback((text: string, lang: string, key: string) => {
-        sequentialAudioPlayer.playSequentially([{
-            text,
-            lang,
-            onStart: () => setCurrentlyPlayingKey(key),
-            onEnd: () => setCurrentlyPlayingKey(prev => prev === key ? null : prev)
-        }]).finally(() => setIsPlayingSequence(false));
+        const mode = playbackModeRef.current;
         setIsPlayingSequence(true);
-    }, []);
+
+        playbackController.playItem(
+            { text, lang, key },
+            mode,
+            playbackCallbacks(),
+            { wpm: readingSpeedRef.current }
+        ).finally(() => {
+            setIsPlayingSequence(false);
+        });
+    }, [playbackCallbacks]);
 
 
 
@@ -465,22 +457,16 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
 
 
     const stopSimulation = useCallback(() => {
-        if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
-        setCurrentlyPlayingKey(null);
-        setHighlightedWordIndex(-1);
+        playbackController.stop();
+        setPlaybackState(null);
         setCustomStatus(null);
-        if (playbackResolverRef.current) {
-            playbackResolverRef.current();
-            playbackResolverRef.current = null;
-        }
     }, []);
 
     // Stop audio and reset state
     const stopAllAudio = useCallback(() => {
-        sequentialAudioPlayer.cancel();
-        setCurrentlyPlayingKey(null);
-        stopSimulation();
-    }, [stopSimulation]);
+        playbackController.stop();
+        setPlaybackState(null);
+    }, []);
 
     return {
         state: {
@@ -494,15 +480,13 @@ export function usePartyB(partyAInput: string, sourceLang: string, hasUserIntera
             isTranslating,
             images,
             audioEnabledLanguages,
-            currentlyPlayingKey,
+            playbackState,
             conversationSuggestions,
             suggestionsLoading,
             videoRef,
             isSparksCollapsed,
             isTranslationsCollapsed,
             isPlayingSequence,
-            // Exposed simulation state
-            highlightedWordIndex,
             customStatus
         },
         actions: {
