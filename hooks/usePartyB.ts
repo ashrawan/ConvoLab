@@ -22,6 +22,7 @@ export function usePartyB(
     const [context, setContext] = useState('');
     const [languages, setLanguages] = useState<string[]>(['en']);
     const [response, setResponse] = useState('');
+    const [responseError, setResponseError] = useState<string | null>(null);
     const [predictions, setPredictions] = useState<PhrasePrediction[]>([]);
     const [videoActive, setVideoActive] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -138,9 +139,11 @@ export function usePartyB(
         setIsGenerating(true);
         setResponse(''); // Clear previous
         setTranslations({}); // Clear previous translations
+        setResponseError(null);
         lastUserInputRef.current = userInput;
 
         let fullResponse = '';
+        let didError = false;
 
         try {
             const res = await chatService.generateResponse({
@@ -155,31 +158,47 @@ export function usePartyB(
             });
 
             if (!res.ok) {
-                fullResponse = `I understand: "${userInput}". How can I help you?`;
-                setResponse(fullResponse);
-            } else {
-                const reader = res.body?.getReader();
-                const decoder = new TextDecoder();
-
-                if (reader) {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) break;
-                        const chunk = decoder.decode(value, { stream: true });
-                        fullResponse += chunk;
-                        setResponse(fullResponse);
+                didError = true;
+                let errorMessage = `Request failed (${res.status} ${res.statusText})`;
+                try {
+                    const raw = await res.text();
+                    if (raw) {
+                        try {
+                            const data = JSON.parse(raw);
+                            errorMessage = data.error || data.message || errorMessage;
+                        } catch {
+                            errorMessage = raw;
+                        }
                     }
+                } catch { }
+                setResponseError(errorMessage);
+                setResponse('');
+                return;
+            }
+
+            const reader = res.body?.getReader();
+            const decoder = new TextDecoder();
+
+            if (reader) {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullResponse += chunk;
+                    setResponse(fullResponse);
                 }
             }
         } catch (err) {
             console.error(err);
-            fullResponse = `I understand: "${userInput}". How may I assist you?`;
-            setResponse(fullResponse);
+            didError = true;
+            const message = err instanceof Error ? err.message : 'Failed to generate response';
+            setResponseError(message);
+            setResponse('');
         } finally {
             setIsGenerating(false);
 
             // Trigger translation immediately after response is complete ONLY if enabled
-            if (fullResponse && languages.length > 1 && !isTranslationsCollapsedRef.current) {
+            if (!didError && fullResponse && languages.length > 1 && !isTranslationsCollapsedRef.current) {
                 setIsOutputTranslating(true);
                 try {
                     const src = languages[0];
@@ -449,6 +468,7 @@ export function usePartyB(
         setContext('');
         setTranslations({});
         setConversationSuggestions([]);
+        setResponseError(null);
     };
 
     // ============================================================================
@@ -473,6 +493,7 @@ export function usePartyB(
             context,
             languages,
             response,
+            error: responseError,
             predictions,
             videoActive,
             isGenerating,

@@ -105,10 +105,22 @@ export class APISTTProvider implements STTProvider {
             formData.append('audio', audioBlob);
             formData.append('language', this.currentLang);
 
+            const provider = localStorage.getItem('active_provider_stt') || 'openai';
+            let apiKey = '';
+
+            if (provider === 'deepgram') {
+                apiKey = localStorage.getItem('key_deepgram') || '';
+            } else {
+                // OpenAI
+                apiKey = localStorage.getItem('key_openai_audio') || localStorage.getItem('key_openai') || localStorage.getItem('user_openai_api_key') || '';
+            }
+
             const response = await fetch(`${API_BASE_URL}/api/audio/stt`, {
                 method: 'POST',
                 headers: {
-                    'ngrok-skip-browser-warning': 'true'
+                    'ngrok-skip-browser-warning': 'true',
+                    'x-provider': provider,
+                    'x-api-key': apiKey
                 },
                 body: formData
             });

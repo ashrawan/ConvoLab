@@ -29,6 +29,7 @@ export function usePartyA(
     const [audioTranscript, setAudioTranscript] = useState('');
     const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
     const [submission, setSubmission] = useState<{ text: string, timestamp: number } | null>(null);
+    const submissionRef = useRef(submission);
 
     // Translation State
     const [translations, setTranslations] = useState<Record<string, string>>({});
@@ -80,6 +81,7 @@ export function usePartyA(
     useEffect(() => { isPhrasesCollapsedRef.current = isPhrasesCollapsed; }, [isPhrasesCollapsed]);
     useEffect(() => { isTranslationsCollapsedRef.current = isTranslationsCollapsed; }, [isTranslationsCollapsed]);
     useEffect(() => { isSimulationControlledRef.current = isSimulationControlled; }, [isSimulationControlled]);
+    useEffect(() => { submissionRef.current = submission; }, [submission]);
 
     // Unmount cleanup
     useEffect(() => {
@@ -409,6 +411,12 @@ export function usePartyA(
         });
     }, [input, playBatchAudio]); // Removed autoPlay/audioEnabledLanguages form dependency as we use refs
 
+    const resendLastSubmission = useCallback((text?: string) => {
+        const message = (text ?? submissionRef.current?.text)?.trim();
+        if (!message) return;
+        setSubmission({ text: message, timestamp: Date.now() });
+    }, []);
+
     const handleWordSelect = useCallback((phrase: string) => {
         const newText = input ? `${input} ${phrase}` : phrase;
         setInput(newText);
@@ -636,7 +644,7 @@ export function usePartyA(
             setAudioEnabledLanguages, setBuildMode, setIsPhrasesCollapsed, setIsTranslationsCollapsed,
             handleInput, handleManualSubmit, handleWordSelect, submitPhrase,
             startAudio, stopAudio, stopAllAudio, toggleVideo, reset, playAudio, playSequence,
-            simulatePlayback, setCustomStatus, stopSimulation
+            simulatePlayback, setCustomStatus, stopSimulation, resendLastSubmission
         },
         refs: {
             videoRef

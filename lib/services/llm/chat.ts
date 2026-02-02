@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '@/lib/utils/api-client';
+import { getLLMHeaders } from '@/lib/config/llm-config';
 
 export interface LLMResponseOptions {
     message: string;
@@ -15,12 +16,19 @@ export interface LLMResponseOptions {
     history?: Array<{ role: string; content: string }>;
 }
 
+export interface NotebookRequest {
+    history: Array<{ role: string; content: string }>;
+    party_a_context?: string;
+    party_b_context?: string;
+}
+
 export const chatService = {
     /**
      * Generate AI response (with optional streaming)
      */
     async generateResponse(options: LLMResponseOptions): Promise<Response> {
-        return apiClient.postStream('/api/ai/respond', options);
+        const headers = getLLMHeaders();
+        return apiClient.postStream('/api/ai/respond', options, { headers });
     },
 
     /**
@@ -32,7 +40,8 @@ export const chatService = {
         party_a_lang?: string;
         history: Array<{ role: string; content: string }>;
     }): Promise<{ message: string }> {
-        return apiClient.post('/api/ai/autoplay/generate', data);
+        const headers = getLLMHeaders();
+        return apiClient.post('/api/ai/autoplay/generate', data, { headers });
     },
 
     /**
@@ -43,6 +52,15 @@ export const chatService = {
         source_lang: string;
         target_langs: string[];
     }) {
-        return apiClient.post('/api/ai/suggestions', data);
+        const headers = getLLMHeaders();
+        return apiClient.post('/api/ai/suggestions', data, { headers });
+    },
+
+    /**
+     * Generate a notebook from conversation history
+     */
+    async generateNotebook(data: NotebookRequest): Promise<{ markdown: string }> {
+        const headers = getLLMHeaders();
+        return apiClient.post('/api/ai/notebook', data, { headers });
     }
 };

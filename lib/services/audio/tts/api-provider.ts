@@ -82,17 +82,51 @@ export class APITTSProvider implements TTSProvider {
         console.log(`🎵 API TTS (req ${requestId}): "${text.substring(0, 50)}..." (${lang})`);
 
         try {
+            // Get Config from LocalStorage
+            const provider = localStorage.getItem('active_provider_tts') || 'openai';
+            let apiKey = '';
+            let voice = '';
+            let model = '';
+
+            let elevenLabsStability = 0.35;
+            let elevenLabsSpeed = 0.9;
+
+            if (provider === 'elevenlabs') {
+                apiKey = localStorage.getItem('key_elevenlabs') || '';
+                voice = localStorage.getItem('voice_id_elevenlabs') || '21m00Tcm4TlvDq8ikWAM';
+                model = localStorage.getItem('model_name_elevenlabs') || 'eleven_multilingual_v2';
+                const storedStability = parseFloat(localStorage.getItem('elevenlabs_stability') || '');
+                const storedSpeed = parseFloat(localStorage.getItem('elevenlabs_speed') || '');
+                elevenLabsStability = Number.isFinite(storedStability) ? storedStability : elevenLabsStability;
+                elevenLabsSpeed = Number.isFinite(storedSpeed) ? storedSpeed : elevenLabsSpeed;
+            } else {
+                // OpenAI
+                // Try specific audio key first, then generic key, then legacy key
+                apiKey = localStorage.getItem('key_openai_audio') || localStorage.getItem('key_openai') || localStorage.getItem('user_openai_api_key') || '';
+                // For OpenAI, 'voice' in options usually maps to 'alloy', 'shimmer' etc. 
+                // We could allow basic voice selection from UI later, for now defaults in route or passed options
+                model = localStorage.getItem('model_name_tts') || 'tts-1';
+            }
+
+            const ttsSpeed = provider === 'elevenlabs' ? elevenLabsSpeed : options.rate || 1.0;
+            const ttsStability = provider === 'elevenlabs' ? elevenLabsStability : undefined;
+
             // Call backend TTS endpoint
             const response = await fetch(`${API_BASE_URL}/api/audio/tts`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
+                    'ngrok-skip-browser-warning': 'true',
+                    'x-provider': provider,
+                    'x-api-key': apiKey
                 },
                 body: JSON.stringify({
                     text,
                     lang: getSpeechLang(lang),
-                    speed: options.rate || 1.0
+                    speed: ttsSpeed,
+                    stability: ttsStability,
+                    voice: voice, // Pass voice ID if using ElevenLabs, or let route handle defaults
+                    model
                 }),
                 signal: this.abortController.signal
             });

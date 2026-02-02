@@ -4,6 +4,7 @@ type EventType =
     | 'conversation_spark'
     | 'context_submitted'
     | 'message_sent'
+    | 'message_resent'
     | 'suggestion_selected';
 
 interface AnalyticsEvent {

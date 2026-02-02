@@ -3,6 +3,7 @@
  */
 
 import { API_BASE_URL } from '@/lib/config/api';
+import { getLLMHeaders } from '@/lib/config/llm-config';
 
 export interface PhrasePrediction {
     phrase: string;
@@ -29,17 +30,27 @@ export async function getPhrasePredictions(
     if (!text || text.trim().length === 0) return [];
 
     try {
-        const url = `${API_BASE_URL}/api/ai/predict/phrases?text=${encodeURIComponent(text)}&num_predictions=${numPredictions}&source_lang=${sourceLang}&return_lang=${returnLang}`;
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+            ...getLLMHeaders()
+        };
 
-        const response = await fetch(url, {
-            headers: {
-                'ngrok-skip-browser-warning': 'true'
-            }
+
+        const response = await fetch(`${API_BASE_URL}/api/ai/predict/phrases`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+                party_context: "User", // This might need to be passed in, but for now default or infer? Original code didn't pass it clearly in GET params
+                history: text, // The 'text' arg seems to be history or context. Original code encoded it as 'text'.
+                lang_name: returnLang // Using returnLang as the language
+            })
         });
+
         if (!response.ok) return [];
 
-        const data: PhrasePredictionResponse = await response.json();
-        return data.predictions || [];
+        const data = await response.json();
+        return data.phrases ? data.phrases.map((p: string) => ({ phrase: p, probability: 1.0 })) : []; // Adapt response format
     } catch (error) {
         console.error('Phrase prediction error:', error);
         return [];

@@ -5,7 +5,7 @@ import { ttsService, TTSProviderType, sttService, STTProviderType } from '@/lib/
 import { checkApiHealth, HealthCheckResult } from '@/lib/utils/health-check';
 import { useTheme } from '@/components/theme-provider';
 
-interface TTSSettingsProps {
+interface AppSettingsProps {
     pauseMicOnAudio: boolean;
     onPauseMicChange: (val: boolean) => void;
     playbackMode: 'audio' | 'highlight' | 'manual';
@@ -19,7 +19,7 @@ interface TTSSettingsProps {
     className?: string;
 }
 
-export function TTSSettings({
+export function AppSettings({
     className = '',
     pauseMicOnAudio,
     onPauseMicChange,
@@ -31,13 +31,16 @@ export function TTSSettings({
     onDelayMultiplierChange,
     showTypingEffect,
     onShowTypingEffectChange
-}: TTSSettingsProps) {
+}: AppSettingsProps) {
     const [ttsProvider, setTTSProvider] = useState<TTSProviderType>(() => ttsService.getProviderType());
     const [sttProvider, setSTTProvider] = useState<STTProviderType>(() => sttService.getProviderType());
     const [isOpen, setIsOpen] = useState(false);
     const [health, setHealth] = useState<HealthCheckResult>({ status: 'loading' });
     const { theme, setTheme } = useTheme();
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Default to Offline mode (true) to prefer simpler experience unless user goes Online
+    const [isOfflineMode, setIsOfflineMode] = useState(true);
 
     // Close on click outside
     useEffect(() => {
@@ -56,20 +59,29 @@ export function TTSSettings({
     }, [isOpen]);
 
     useEffect(() => {
+        // Safe check for window
+        if (typeof window !== 'undefined') {
+            const storedMode = localStorage.getItem('app_mode_offline');
+            if (storedMode) {
+                setIsOfflineMode(storedMode === 'true');
+            }
+        }
+    }, []);
+
+    const toggleOfflineMode = (offline: boolean) => {
+        setIsOfflineMode(offline);
+        localStorage.setItem('app_mode_offline', String(offline));
+
+        // If switching to online, trigger health check immediately
+        if (!offline) {
+            checkApiHealth().then(setHealth);
+        }
+    };
+
+    useEffect(() => {
         // Sync state with services immediately on mount
         setTTSProvider(ttsService.getProviderType());
         setSTTProvider(sttService.getProviderType());
-
-        // Init health check
-        const performHealthCheck = async () => {
-            const result = await checkApiHealth();
-            setHealth(result);
-        };
-
-        performHealthCheck();
-
-        // Check every 30 seconds
-        const interval = setInterval(performHealthCheck, 30000);
 
         // Listen for changes
         const unsubTTS = ttsService.onProviderChange((newType) => {
@@ -82,13 +94,65 @@ export function TTSSettings({
         return () => {
             unsubTTS();
             unsubSTT();
-            clearInterval(interval);
         };
     }, []);
+
+    // Health Check Logic - Only if Online
+    useEffect(() => {
+        if (isOfflineMode) return;
+
+        // Init health check
+        const performHealthCheck = async () => {
+            const result = await checkApiHealth();
+            setHealth(result);
+        };
+
+        performHealthCheck();
+
+        // Check every 30 seconds
+        const interval = setInterval(performHealthCheck, 30000);
+
+        return () => {
+            clearInterval(interval);
+        };
+    }, [isOfflineMode]);
+
+    const [sttKeyMissing, setSttKeyMissing] = useState(false);
+    const [ttsKeyMissing, setTtsKeyMissing] = useState(false);
+
+    const checkAudioKeys = () => {
+        if (typeof window === 'undefined') return;
+
+        // STT Check
+        if (sttProvider === 'api' && isOfflineMode) {
+            const activeSTT = localStorage.getItem('active_provider_stt') || 'openai';
+            const key = localStorage.getItem(`key_${activeSTT}`) || (activeSTT === 'openai' ? (localStorage.getItem('key_openai_audio') || localStorage.getItem('user_openai_api_key')) : null);
+            setSttKeyMissing(!key);
+        } else {
+            setSttKeyMissing(false);
+        }
+
+        // TTS Check
+        if (ttsProvider === 'api' && isOfflineMode) {
+            const activeTTS = localStorage.getItem('active_provider_tts') || 'openai';
+            const key = localStorage.getItem(`key_${activeTTS}`) || (activeTTS === 'openai' ? (localStorage.getItem('key_openai_audio') || localStorage.getItem('user_openai_api_key')) : null);
+            setTtsKeyMissing(!key);
+        } else {
+            setTtsKeyMissing(false);
+        }
+    };
+
+    useEffect(() => {
+        checkAudioKeys();
+        // Poll for external changes (config modal)
+        const interval = setInterval(checkAudioKeys, 2000);
+        return () => clearInterval(interval);
+    }, [sttProvider, ttsProvider, isOfflineMode]);
 
     const handleTTSProviderChange = (newProvider: TTSProviderType) => {
         setTTSProvider(newProvider);
         ttsService.setProvider(newProvider);
+        // State update is async, check will happen in effect
     };
 
     const handleSTTProviderChange = (newProvider: STTProviderType) => {
@@ -97,6 +161,7 @@ export function TTSSettings({
     };
 
     const getHealthColor = () => {
+        if (isOfflineMode) return 'hidden';
         switch (health.status) {
             case 'healthy': return 'bg-green-500';
             case 'degraded': return 'bg-amber-500';
@@ -116,17 +181,19 @@ export function TTSSettings({
     return (
         <div className={`relative ${className}`} ref={dropdownRef}>
             <div className="flex items-center gap-2">
-                {/* API Status Indicator */}
-                <div className="relative group/status">
-                    <div
-                        className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer ${getHealthColor()}`}
-                        onClick={handleHealthClick}
-                    />
-                    {/* Instant Custom Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover/status:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap shadow-xl">
-                        {health.status === 'healthy' ? 'Online' : (health.message || 'Checking API...')}
+                {/* API Status Indicator - Only if Online */}
+                {!isOfflineMode && (
+                    <div className="relative group/status">
+                        <div
+                            className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer ${getHealthColor()}`}
+                            onClick={handleHealthClick}
+                        />
+                        {/* Instant Custom Tooltip */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover/status:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap shadow-xl">
+                            {health.status === 'healthy' ? 'Cloud Connected' : (health.message || 'Checking API...')}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Settings Button */}
                 <button
@@ -135,7 +202,7 @@ export function TTSSettings({
                         ? 'bg-accent text-accent-foreground'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                         }`}
-                    title="Settings"
+                    title="App Settings"
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -152,7 +219,7 @@ export function TTSSettings({
                     <div className="absolute right-0 top-full mt-3 w-80 bg-popover border border-border rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-50 overflow-hidden ring-1 ring-border origin-top-right transition-all">
                         {/* Header */}
                         <div className="px-5 py-4 border-b border-border flex items-center justify-between bg-muted/30">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Settings</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">App Settings</span>
                             <div className="flex gap-1">
                                 <span className="w-1.5 h-1.5 rounded-full bg-border" />
                                 <span className="w-1.5 h-1.5 rounded-full bg-border" />
@@ -160,8 +227,57 @@ export function TTSSettings({
                         </div>
 
                         <div className="p-4 space-y-5">
-                            {/* API Health Alert if not healthy */}
-                            {health.status !== 'healthy' && health.status !== 'loading' && (
+
+                            {/* Operation Mode Toggle */}
+                            <div className="bg-muted/10 rounded-lg p-3 border border-border">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <svg className={`w-4 h-4 ${isOfflineMode ? 'text-green-500' : 'text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                            Operation Mode
+                                        </span>
+                                    </div>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOfflineMode ? 'bg-green-500/10 text-green-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                                        {isOfflineMode ? 'LOCAL' : 'CLOUD'}
+                                    </span>
+                                </div>
+
+                                <div className="flex bg-muted rounded-lg p-1 gap-1">
+                                    <button
+                                        onClick={() => toggleOfflineMode(true)}
+                                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${isOfflineMode
+                                            ? 'bg-background text-foreground shadow-sm'
+                                            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                                            }`}
+                                    >
+                                        Local
+                                    </button>
+                                    <div className="flex-1 relative group/cloud">
+                                        <button
+                                            onClick={() => {
+                                                if (process.env.NEXT_PUBLIC_ENABLE_CLOUD === 'true') {
+                                                    toggleOfflineMode(false);
+                                                }
+                                            }}
+                                            disabled={process.env.NEXT_PUBLIC_ENABLE_CLOUD !== 'true'}
+                                            className={`w-full h-full px-3 py-1.5 text-xs font-medium rounded-md transition-all ${!isOfflineMode
+                                                ? 'bg-background text-foreground shadow-sm'
+                                                : 'text-muted-foreground'
+                                                } ${process.env.NEXT_PUBLIC_ENABLE_CLOUD !== 'true' ? 'opacity-50 cursor-not-allowed' : 'hover:text-foreground hover:bg-background/50'}`}
+                                        >
+                                            Cloud
+                                        </button>
+                                    </div>
+                                </div>
+                                {process.env.NEXT_PUBLIC_ENABLE_CLOUD !== 'true' && (
+                                    <div className="mt-2 text-[10px] text-muted-foreground leading-tight px-1">
+                                        <span className="font-semibold text-primary/80">Coming Soon:</span> Cloud mode with Social Login, Sync, and Subscriptions.
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* API Health Alert - Only if Online and Error */}
+                            {!isOfflineMode && health.status !== 'healthy' && health.status !== 'loading' && (
                                 <div
                                     className={`p-3 rounded-xl text-[11px] flex items-start gap-3 border transition-colors ${health.status === 'ngrok-interposer'
                                         ? 'bg-destructive/10 border-destructive/20 text-destructive'
@@ -173,7 +289,7 @@ export function TTSSettings({
                                     </svg>
                                     <div className="flex-1">
                                         <p className="font-bold uppercase tracking-tight mb-0.5">
-                                            {health.status === 'ngrok-interposer' ? 'Ngrok Action Required' : 'API Connection Issue'}
+                                            {health.status === 'ngrok-interposer' ? 'Ngrok Action Required' : 'Connection Issue - App Backend is Down'}
                                         </p>
                                         <p className="opacity-90 leading-relaxed mb-1.5">
                                             {health.status === 'ngrok-interposer'
@@ -186,58 +302,11 @@ export function TTSSettings({
                                                 className="w-full px-2 py-1.5 bg-destructive/20 hover:bg-destructive/30 border border-destructive/30 rounded text-destructive font-medium transition-colors flex items-center justify-center gap-1.5"
                                             >
                                                 <span>Authorize Now</span>
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                                </svg>
                                             </button>
                                         )}
                                     </div>
                                 </div>
                             )}
-
-                            {/* Theme Selector */}
-                            <div className="bg-muted/10 rounded-lg p-3 border border-border">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <svg className="w-4 h-4 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                                        </svg>
-                                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                            Theme
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex bg-muted rounded-lg p-1 gap-1">
-                                    <button
-                                        onClick={() => setTheme('light')}
-                                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${theme === 'light'
-                                            ? 'bg-background text-foreground shadow-sm'
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                                            }`}
-                                    >
-                                        Light
-                                    </button>
-                                    <button
-                                        onClick={() => setTheme('dark')}
-                                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${theme === 'dark'
-                                            ? 'bg-background text-foreground shadow-sm'
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                                            }`}
-                                    >
-                                        Dark
-                                    </button>
-                                    <button
-                                        onClick={() => setTheme('system')}
-                                        className={`flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${theme === 'system'
-                                            ? 'bg-background text-foreground shadow-sm'
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                                            }`}
-                                    >
-                                        Auto
-                                    </button>
-                                </div>
-                            </div>
 
                             {/* Voice Input Section (STT) - Grouped */}
                             <div className="bg-muted/10 rounded-lg p-3 border border-border">
@@ -247,7 +316,7 @@ export function TTSSettings({
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                                         </svg>
                                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                            Voice Input
+                                            Voice Input (STT)
                                         </span>
                                     </div>
                                 </div>
@@ -260,22 +329,31 @@ export function TTSSettings({
                                             : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                                             }`}
                                     >
-                                        Offline
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none shadow-xl z-50 w-max max-w-[200px] text-center">
-                                            Uses Browser/System Built in functionality
-                                        </div>
+                                        Built-In
                                     </button>
                                     <button
                                         onClick={() => handleSTTProviderChange('api')}
+                                        title={sttKeyMissing && sttProvider === 'api' ? "Voice Input (STT) is not configured" : undefined}
                                         className={`relative group flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${sttProvider === 'api'
-                                            ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30 shadow-sm'
+                                            ? (sttKeyMissing
+                                                ? 'bg-amber-500/10 text-amber-600 border border-amber-500/50 shadow-sm'
+                                                : 'bg-blue-500/20 text-blue-500 border border-blue-500/30 shadow-sm')
                                             : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                                             }`}
                                     >
-                                        API
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none shadow-xl z-50 w-max max-w-[200px] text-center">
-                                            Makes server call and uses AI to process
-                                        </div>
+                                        AI
+                                        {sttKeyMissing && sttProvider === 'api' && (
+                                            <>
+                                                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                                                </span>
+                                                {/* Tooltip on Hover */}
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                                    Voice Input (STT) is not configured
+                                                </div>
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -288,7 +366,7 @@ export function TTSSettings({
                                             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
                                         </svg>
                                         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                            Audio Output
+                                            Audio Output (TTS)
                                         </span>
                                     </div>
                                 </div>
@@ -302,22 +380,31 @@ export function TTSSettings({
                                             : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                                             }`}
                                     >
-                                        Offline
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none shadow-xl z-50 w-max max-w-[200px] text-center">
-                                            Uses Browser/System Built in functionality
-                                        </div>
+                                        Built-In
                                     </button>
                                     <button
                                         onClick={() => handleTTSProviderChange('api')}
+                                        title={ttsKeyMissing && ttsProvider === 'api' ? "Audio Output (TTS) is not configured" : undefined}
                                         className={`relative group flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${ttsProvider === 'api'
-                                            ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30 shadow-sm'
+                                            ? (ttsKeyMissing
+                                                ? 'bg-amber-500/10 text-amber-600 border border-amber-500/50 shadow-sm'
+                                                : 'bg-blue-500/20 text-blue-500 border border-blue-500/30 shadow-sm')
                                             : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                                             }`}
                                     >
-                                        API
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none shadow-xl z-50 w-max max-w-[200px] text-center">
-                                            Makes server call and uses AI to process
-                                        </div>
+                                        AI
+                                        {ttsKeyMissing && ttsProvider === 'api' && (
+                                            <>
+                                                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                                                </span>
+                                                {/* Tooltip on Hover */}
+                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-popover border border-border rounded-md text-[10px] text-popover-foreground font-medium shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                                    Audio Output (TTS) is not configured
+                                                </div>
+                                            </>
+                                        )}
                                     </button>
                                 </div>
 

@@ -28,7 +28,7 @@ export interface SimulationDelegate {
     waitWithCountdown: (role: 'party_a' | 'party_b', ms: number) => Promise<void>;
 
     // Utils
-    addToHistory: (role: 'party_a' | 'party_b', content: string) => void;
+    addToHistory: (role: 'party_a' | 'party_b', content: string, translations?: Record<string, string>) => void;
     warmupAudio?: () => void;
 }
 
@@ -135,8 +135,11 @@ export function useSimulationManager({ delegate, maxCycles = 5, playbackMode, de
                 // where response might generate quickly before we get to waiting phase
                 const previousPartyBResponse = delegateRef.current.getPartyBResponse();
 
-                delegateRef.current.addToHistory('party_a', nextMessage);
+                // Submit first to get translations
                 const submissionResult = await delegateRef.current.submitMessage();
+
+                // Add to history WITH translations
+                delegateRef.current.addToHistory('party_a', nextMessage, submissionResult ? submissionResult.translations : undefined);
 
                 await waitIfPaused();
                 if (cancelRef.current) break;
@@ -166,9 +169,6 @@ export function useSimulationManager({ delegate, maxCycles = 5, playbackMode, de
                 setState(prev => ({ ...prev, phase: 'waiting_party_b' }));
                 console.log('Phase: Waiting for Party B');
 
-                setState(prev => ({ ...prev, phase: 'waiting_party_b' }));
-                console.log('Phase: Waiting for Party B');
-
                 const partyBResult = await delegateRef.current.waitForPartyBResponse(previousPartyBResponse);
                 if (!partyBResult || cancelRef.current) {
                     console.log('⚠️ Party B did not respond');
@@ -176,7 +176,7 @@ export function useSimulationManager({ delegate, maxCycles = 5, playbackMode, de
                     break;
                 }
 
-                delegateRef.current.addToHistory('party_b', partyBResult.response);
+                delegateRef.current.addToHistory('party_b', partyBResult.response, partyBResult.translations);
 
                 // ------------------------------------------------------------
                 // Phase 5: Party B Audio

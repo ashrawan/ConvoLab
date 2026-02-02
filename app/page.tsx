@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import PartyAPanel from '@/components/party-a/PartyAPanel';
 import PartyBPanel from '@/components/party-b/PartyBPanel';
-import { TTSSettings } from '@/components/shared/TTSSettings';
+import { AppSettings } from '@/components/shared/AppSettings';
 import { ConvoContextInput } from '@/components/shared/ConvoContextInput';
 import { Footer } from '@/components/shared/Footer';
 import { usePartyA } from '@/hooks/usePartyA';
@@ -12,6 +12,18 @@ import { useAudioController } from '@/hooks/useAudioController';
 import { useSimulationManager, SimulationDelegate } from '@/hooks/useSimulationManager';
 import { chatService } from '@/lib/services/llm';
 import { sequentialAudioPlayer } from '@/lib/utils/audio-player';
+import { UserMenu } from '@/components/shared/UserMenu';
+import { ConfigurationModal } from '@/components/offline/ConfigurationModal';
+import { ModelSelector } from '@/components/offline/ModelSelector';
+import { ConversationHistoryModal } from '@/components/shared/ConversationHistoryModal';
+import { History } from 'lucide-react';
+
+// Types
+interface HistoryItem {
+  role: string;
+  content: string;
+  translations?: Record<string, string>;
+}
 
 // ============================================================================
 // Two-Party Human ↔ AI Communication Interface
@@ -22,6 +34,13 @@ export default function Home() {
   // Common Logic (Autoplay Policy)
   // ============================================================================
   const hasUserInteractedRef = useRef<boolean>(false);
+
+
+
+  // Settings State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [historyState, setHistoryState] = useState<HistoryItem[]>([]); // UI State for History
 
   useEffect(() => {
     const markInteraction = () => {
@@ -45,7 +64,7 @@ export default function Home() {
   // ============================================================================
 
   // Auto-play setting (enabled by default)
-  // Auto-play setting (enabled by default)
+
   const [playbackMode, setPlaybackMode] = useState<'audio' | 'highlight' | 'manual'>('audio');
   const [delayMultiplier, setDelayMultiplier] = useState(2);
   const [pauseMicOnAudio, setPauseMicOnAudio] = useState(true);
@@ -83,9 +102,15 @@ export default function Home() {
       const text = partyA.state.submission.text;
       if (text) {
         // If MANUAL input (not auto-play), add to history
-        // If MANUAL input (not auto-play), add to history
+
         if (!simulationManager.state.isRunning) {
-          conversationHistoryRef.current.push({ role: 'party_a', content: text });
+          const newItem = {
+            role: 'party_a',
+            content: text,
+            translations: partyA.state.lastSentTranslations
+          };
+          conversationHistoryRef.current.push(newItem);
+          setHistoryState(prev => [...prev, newItem]);
         }
 
         // Generate Party B response with full context & history
@@ -105,10 +130,16 @@ export default function Home() {
 
     if (wasGenerating && !isGenerating) {
       // Just finished generating
-      // Just finished generating
+
       if (partyB.state.response) {
         if (!simulationManager.state.isRunning) {
-          conversationHistoryRef.current.push({ role: 'party_b', content: partyB.state.response });
+          const newItem = {
+            role: 'party_b',
+            content: partyB.state.response,
+            translations: partyB.state.translations
+          };
+          conversationHistoryRef.current.push(newItem);
+          setHistoryState(prev => [...prev, newItem]);
         }
       }
     }
@@ -123,20 +154,22 @@ export default function Home() {
   // ============================================================================
 
   // History for Simulation Context
-  const conversationHistoryRef = useRef<{ role: string, content: string }[]>([]);
+  const conversationHistoryRef = useRef<HistoryItem[]>([]);
 
   // Refs for Party B state (for proper polling in waitForPartyBResponse)
   const partyBResponseRef = useRef(partyB.state.response);
   const partyBIsGeneratingRef = useRef(partyB.state.isGenerating);
   const partyBIsTranslatingRef = useRef(partyB.state.isTranslating);
   const partyBTranslationsRef = useRef(partyB.state.translations);
+  const partyBErrorRef = useRef<string | null>(partyB.state.error || null);
 
   useEffect(() => {
     partyBResponseRef.current = partyB.state.response;
     partyBIsGeneratingRef.current = partyB.state.isGenerating;
     partyBIsTranslatingRef.current = partyB.state.isTranslating;
     partyBTranslationsRef.current = partyB.state.translations;
-  }, [partyB.state.response, partyB.state.isGenerating, partyB.state.isTranslating, partyB.state.translations]);
+    partyBErrorRef.current = partyB.state.error || null;
+  }, [partyB.state.response, partyB.state.isGenerating, partyB.state.isTranslating, partyB.state.translations, partyB.state.error]);
 
   // Typing Sound
   const typingSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -225,6 +258,12 @@ export default function Home() {
 
       let attempts = 0;
       while (attempts < 600) { // 60s timeout
+        const currentError = partyBErrorRef.current;
+        if (currentError) {
+          console.warn('Party B generation error:', currentError);
+          return null;
+        }
+
         const currentResponse = partyBResponseRef.current;
         const isGenerating = partyBIsGeneratingRef.current;
         const isTranslating = partyBIsTranslatingRef.current;
@@ -267,10 +306,13 @@ export default function Home() {
       }
       setStatus(null);
     },
-    addToHistory: (role, content) => {
-      conversationHistoryRef.current.push({ role, content });
-      // If we wanted to expose this to the UI, we'd need a state.
-      // For now, it's internal to the simulation flow.
+    addToHistory: (role, content, translations) => {
+      // Use passed translations if available, otherwise try to extract (fallback)
+      // For Party B, we were previously using a ref, but now useSimulationManager passes it from waitForPartyBResponse result.
+
+      const newItem = { role, content, translations };
+      conversationHistoryRef.current.push(newItem);
+      setHistoryState(prev => [...prev, newItem]);
     },
     warmupAudio: () => {
       sequentialAudioPlayer.resumeContext();
@@ -335,7 +377,10 @@ export default function Home() {
     // 0. Reset State (Clean Slate)
     simulationManager.actions.stop();
     // Clear history ref
+    simulationManager.actions.stop();
+    // Clear history ref
     conversationHistoryRef.current = [];
+    setHistoryState([]);
 
     partyA.actions.stopAllAudio();
     partyB.actions.stopAllAudio();
@@ -380,6 +425,7 @@ export default function Home() {
           maxAutoplayCount={10}
 
           // Left: Brand
+          // Left: Brand
           brandContent={
             <div className="flex items-center gap-3 opacity-80 hover:opacity-100 transition-opacity">
               {/* Desktop Logo */}
@@ -401,7 +447,13 @@ export default function Home() {
           // Right: Settings
           rightContent={
             <div className="flex items-center gap-4">
-              <TTSSettings
+
+              {/* Separate Model Selector */}
+              <ModelSelector onOpenSettings={() => setIsSettingsOpen(true)} />
+
+
+
+              <AppSettings
                 pauseMicOnAudio={pauseMicOnAudio}
                 onPauseMicChange={setPauseMicOnAudio}
                 playbackMode={playbackMode}
@@ -413,9 +465,9 @@ export default function Home() {
                 showTypingEffect={showTypingEffect}
                 onShowTypingEffectChange={setShowTypingEffect}
               />
-              <div className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center hover:bg-muted/80 transition-colors cursor-pointer">
-                <span className="text-sm opacity-70">👤</span>
-              </div>
+
+              {/* User Menu (Future Login) */}
+              <UserMenu onOpenSettings={() => { }} />
             </div>
           }
         />
@@ -425,6 +477,7 @@ export default function Home() {
       <div className="flex-1 flex flex-row overflow-hidden">
         {/* PARTY A (HUMAN) - LEFT SIDE */}
         <PartyAPanel
+          onHistoryClick={() => setIsHistoryOpen(true)}
           context={partyA.state.context}
           onContextChange={partyA.actions.setContext}
           languages={partyA.state.languages}
@@ -449,6 +502,10 @@ export default function Home() {
           }}
           audioTranscript={partyA.state.audioTranscript}
           lastSubmission={partyA.state.submission}
+          onResendLastSubmission={(text) => {
+            if (simulationManager.state.isRunning) simulationManager.actions.stop();
+            partyA.actions.resendLastSubmission(text);
+          }}
           buildMode={partyA.state.buildMode}
           onBuildModeToggle={() => partyA.actions.setBuildMode(!partyA.state.buildMode)}
           predictions={partyA.state.predictions}
@@ -490,6 +547,7 @@ export default function Home() {
           highlightedWordIndex={partyB.state.playbackState?.wordIndex ?? -1}
           response={partyB.state.response}
           isGenerating={partyB.state.isGenerating}
+          error={partyB.state.error}
           translations={partyB.state.translations}
           isTranslating={partyB.state.isTranslating}
           onPlayAudio={partyB.actions.playAudio}
@@ -511,6 +569,14 @@ export default function Home() {
         />
       </div>
       <Footer />
+      <ConfigurationModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      <ConversationHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        history={historyState}
+        partyAContext={partyA.state.context}
+        partyBContext={partyB.state.context}
+      />
     </main>
   );
 }

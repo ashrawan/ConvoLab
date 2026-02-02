@@ -14,6 +14,7 @@ interface ContextInputProps {
     onAudioEnabledChange?: (languages: string[]) => void;
     videoVisible?: boolean;
     onVideoVisibleChange?: () => void;
+    onHistoryClick?: () => void;
 }
 
 export default function ContextInput({
@@ -25,7 +26,8 @@ export default function ContextInput({
     audioEnabledLanguages = ['en'],
     onAudioEnabledChange,
     videoVisible = false,
-    onVideoVisibleChange
+    onVideoVisibleChange,
+    onHistoryClick
 }: ContextInputProps) {
     const [showMenu, setShowMenu] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -100,6 +102,31 @@ export default function ContextInput({
         <div className="relative flex flex-nowrap items-center gap-2 px-3 py-2 border-b border-border bg-background z-20">
             {/* Party Label */}
             <div className={`flex items-center gap-2 shrink-0 ${party === 'A' ? 'text-violet-700 dark:text-violet-400' : 'text-blue-700 dark:text-blue-400'}`}>
+                {/* History Button - Left of "You" */}
+                {party === 'A' && onHistoryClick && (
+                    <button
+                        onClick={onHistoryClick}
+                        className="p-1 rounded hover:bg-violet-500/10 text-violet-700 dark:text-violet-400 transition-colors mr-1"
+                        title="History"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <path d="M3 3v5h5" />
+                            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                            <path d="M12 7v5l4 2" />
+                        </svg>
+                    </button>
+                )}
+
                 <span className="font-semibold text-sm md:text-base">{party === 'A' ? 'You' : 'AI'}</span>
 
                 {/* Video Toggle Icon - Only for Party A */}

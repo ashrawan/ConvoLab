@@ -1,9 +1,10 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import ContextInput from '../input/ContextInput';
 import LanguageTranslations from '../shared/LanguageTranslations';
 import ConversationSuggestions from '../shared/ConversationSuggestions';
 import { ResizableDivider } from '../shared/ResizableDivider';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // Helper to render highlighted text preserving whitespace
 const renderHighlightedText = (text: string, activeIndex: number) => {
@@ -17,6 +18,39 @@ const renderHighlightedText = (text: string, activeIndex: number) => {
         // Use whitespace-pre-wrap to allow wrapping while preserving sequence
         return <span key={i} className="whitespace-pre-wrap">{part}</span>;
     });
+};
+
+const MAX_HEADING_CHARS = 15;
+
+const slugify = (value: string) => value
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
+const createSlugger = () => {
+    const counts: Record<string, number> = {};
+    return {
+        slug(text: string) {
+            const base = slugify(text) || 'section';
+            const count = counts[base] ?? 0;
+            counts[base] = count + 1;
+            return count ? `${base}-${count}` : base;
+        },
+        reset() {
+            Object.keys(counts).forEach(key => delete counts[key]);
+        }
+    };
+};
+
+const getNodeText = (node: unknown): string => {
+    if (typeof node === 'string' || typeof node === 'number') return String(node);
+    if (Array.isArray(node)) return node.map(getNodeText).join('');
+    if (node && typeof node === 'object' && 'props' in node) {
+        return getNodeText((node as { props?: { children?: unknown } }).props?.children);
+    }
+    return '';
 };
 
 interface PartyBPanelProps {
@@ -34,6 +68,7 @@ interface PartyBPanelProps {
     // Response
     response: string;
     isGenerating: boolean;
+    error?: string | null;
 
     // Translations
     translations: Record<string, string>;
@@ -76,6 +111,7 @@ export default function PartyBPanel({
     highlightedWordIndex,
     response,
     isGenerating,
+    error,
     translations,
     isTranslating,
     onPlayAudio,
@@ -104,6 +140,20 @@ export default function PartyBPanel({
     const [topSectionHeight, setTopSectionHeight] = useState<number | null>(null);
     const [translationsHeight, setTranslationsHeight] = useState<number>(120); // Default 120px
     // Internal state removed in favor of props control
+    const headingSluggerRef = useRef(createSlugger());
+    const headings = useMemo(() => {
+        if (!response) return [];
+        const slugger = createSlugger();
+        const matches = response.matchAll(/^(#{1,6})\s+(.+)$/gm);
+        const items: Array<{ text: string; slug: string }> = [];
+        for (const match of matches) {
+            const text = match[2].trim();
+            if (!text) continue;
+            items.push({ text, slug: slugger.slug(text) });
+        }
+        return items;
+    }, [response]);
+    headingSluggerRef.current.reset();
 
     const handleResize = useCallback((delta: number) => {
         setTopSectionHeight(prev => {
@@ -148,65 +198,151 @@ export default function PartyBPanel({
                 className={`border-b border-border flex flex-col overflow-hidden ${isSparksCollapsed ? 'flex-1' : ''}`}
                 style={isSparksCollapsed ? undefined : { height: topSectionHeight ?? '60%' }}
             >
-                {/* Response Area */}
-                <div className="flex-1 relative p-6 overflow-y-auto custom-scrollbar min-h-0">
-                    {/* Speaking/Reading/Custom indicator - Top */}
-                    {showActiveState && response && (
-                        <div className="flex items-center gap-2 mb-2 opacity-80">
-                            <span className={`text-[10px] uppercase tracking-wider font-bold ${customStatus ? 'text-amber-500' :
-                                isReadingMain ? 'text-blue-700 dark:text-blue-400' :
-                                    'text-violet-700 dark:text-violet-400'
-                                }`}>
-                                {customStatus || (isReadingMain ? 'Reading...' : 'Speaking...')}
-                            </span>
-                            <span className="flex gap-0.5 items-end h-2.5">
-                                <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${customStatus ? 'bg-amber-500' :
-                                    isReadingMain ? 'bg-blue-600 dark:bg-blue-400' :
-                                        'bg-violet-600 dark:bg-violet-400'
-                                    }`}></span>
-                                <span className={`w-0.5 h-2.5 animate-[pulse_0.8s_infinite] ${customStatus ? 'bg-amber-500' :
-                                    isReadingMain ? 'bg-blue-600 dark:bg-blue-400' :
-                                        'bg-violet-600 dark:bg-violet-400'
-                                    }`}></span>
-                                <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${customStatus ? 'bg-amber-500' :
-                                    isReadingMain ? 'bg-blue-600 dark:bg-blue-400' :
-                                        'bg-violet-600 dark:bg-violet-400'
-                                    }`}></span>
-                            </span>
-                        </div>
-                    )}
+                {/* Response Area - Wrapper for scrollable content and fixed button */}
+                <div className="flex-1 relative min-h-0">
+                    {/* Scrollable Content */}
+                    <div className="absolute inset-0 p-6 overflow-y-auto custom-scrollbar">
+                        {/* Speaking/Reading/Custom indicator - Top */}
+                        {showActiveState && response && (
+                            <div className="flex items-center gap-2 mb-2 opacity-80">
+                                <span className={`text-[10px] uppercase tracking-wider font-bold ${customStatus ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                                    {customStatus || (isReadingMain ? 'Reading...' : 'Speaking...')}
+                                </span>
+                                <span className="flex gap-0.5 items-end h-2.5">
+                                    <span className={`w-0.5 h-1 animate-[pulse_0.6s_infinite] ${customStatus ? 'bg-amber-500' : 'bg-muted-foreground'}`}></span>
+                                    <span className={`w-0.5 h-2.5 animate-[pulse_0.8s_infinite] ${customStatus ? 'bg-amber-500' : 'bg-muted-foreground'}`}></span>
+                                    <span className={`w-0.5 h-1.5 animate-[pulse_0.7s_infinite] ${customStatus ? 'bg-amber-500' : 'bg-muted-foreground'}`}></span>
+                                </span>
+                            </div>
+                        )}
 
-                    {/* Response Text */}
-                    <div className={`text-xl leading-relaxed whitespace-pre-wrap transition-colors duration-300 ${customStatus ? 'opacity-80' :
-                        isPlayingMain ? 'text-violet-700 dark:text-violet-400' :
-                            'text-blue-700 dark:text-blue-400'
-                        }`}>
-                        {currentlyPlayingKey === 'response' && highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
-                            renderHighlightedText(response, highlightedWordIndex)
-                        ) : response ? (
-                            <ReactMarkdown
-                                components={{
-                                    p: ({ children }) => <span className="block mb-2 last:mb-0">{children}</span>,
-                                    strong: ({ children }) => <span className="font-bold text-blue-700 dark:text-blue-400">{children}</span>,
-                                    em: ({ children }) => <span className="italic opacity-80">{children}</span>,
-                                    // Handle lists if needed, though 'nice and simple' was requested
-                                    ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
-                                    ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
-                                }}
-                            >
-                                {response}
-                            </ReactMarkdown>
-                        ) : (
-                            <span>{isGenerating ? 'Generating response...' : 'Output'}</span>
-                        )}
-                        {isGenerating && (
-                            <span className="inline-block w-2 h-6 ml-2 bg-blue-600 dark:bg-blue-400 animate-pulse" />
-                        )}
+                        {/* Response Text */}
+                        <div className={`text-lg leading-relaxed whitespace-pre-wrap transition-colors duration-300 text-foreground ${customStatus ? 'opacity-80' : ''}`}>
+                            {error && !isGenerating ? (
+                                <div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
+                                    {error}
+                                </div>
+                            ) : currentlyPlayingKey === 'response' && highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
+                                renderHighlightedText(response, highlightedWordIndex)
+                            ) : response ? (
+                                <>
+                                    {headings.length > 0 && (
+                                        <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
+                                            {headings.map(heading => (
+                                                <button
+                                                    key={heading.slug}
+                                                    type="button"
+                                                    className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                                                    title={heading.text}
+                                                    onClick={() => {
+                                                        const el = document.getElementById(heading.slug);
+                                                        if (el) {
+                                                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                        }
+                                                    }}
+                                                >
+                                                    <span className="truncate" style={{ maxWidth: `${MAX_HEADING_CHARS}ch` }}>
+                                                        {heading.text}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                        p: ({ children }) => <span className="block last:mb-0">{children}</span>,
+                                        strong: ({ children }) => <span className="font-bold">{children}</span>,
+                                        em: ({ children }) => <span className="italic opacity-80">{children}</span>,
+                                        h1: ({ children }) => {
+                                            const text = getNodeText(children);
+                                            const id = headingSluggerRef.current.slug(text);
+                                            return <h3 id={id} className="mt-4 mb-2 text-sm font-semibold text-foreground scroll-mt-20">{children}</h3>;
+                                        },
+                                        h2: ({ children }) => {
+                                            const text = getNodeText(children);
+                                            const id = headingSluggerRef.current.slug(text);
+                                            return <h3 id={id} className="mt-4 mb-2 text-sm font-semibold text-foreground scroll-mt-20">{children}</h3>;
+                                        },
+                                        h3: ({ children }) => {
+                                            const text = getNodeText(children);
+                                            const id = headingSluggerRef.current.slug(text);
+                                            return <h4 id={id} className="mt-3 mb-1 text-sm font-semibold text-foreground scroll-mt-20">{children}</h4>;
+                                        },
+                                        h4: ({ children }) => {
+                                            const text = getNodeText(children);
+                                            const id = headingSluggerRef.current.slug(text);
+                                            return <h5 id={id} className="mt-3 mb-1 text-xs font-semibold text-foreground scroll-mt-20">{children}</h5>;
+                                        },
+                                        h5: ({ children }) => {
+                                            const text = getNodeText(children);
+                                            const id = headingSluggerRef.current.slug(text);
+                                            return <h6 id={id} className="mt-2 mb-1 text-xs font-semibold text-foreground scroll-mt-20">{children}</h6>;
+                                        },
+                                        h6: ({ children }) => {
+                                            const text = getNodeText(children);
+                                            const id = headingSluggerRef.current.slug(text);
+                                            return <h6 id={id} className="mt-2 mb-1 text-xs font-semibold text-foreground scroll-mt-20">{children}</h6>;
+                                        },
+                                        code: (props) => {
+                                            const { className, children, ...rest } = props;
+                                            const isInline = Boolean((props as { inline?: boolean }).inline);
+                                            if (isInline) {
+                                                return (
+                                                    <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-sm" {...rest}>
+                                                        {children}
+                                                    </code>
+                                                );
+                                            }
+                                            return (
+                                                <code className={className} {...rest}>
+                                                    {children}
+                                                </code>
+                                            );
+                                        },
+                                        pre: ({ children }) => (
+                                            <pre className="my-3 p-3 rounded-md bg-muted/50 text-foreground overflow-x-auto">
+                                                {children}
+                                            </pre>
+                                        ),
+                                        table: ({ children }) => (
+                                            <div className="my-3 overflow-x-auto">
+                                                <table className="w-full text-left border-collapse">{children}</table>
+                                            </div>
+                                        ),
+                                        th: ({ children }) => (
+                                            <th className="border-b border-border px-2 py-1 text-xs font-semibold text-muted-foreground">
+                                                {children}
+                                            </th>
+                                        ),
+                                        td: ({ children }) => (
+                                            <td className="border-b border-border px-2 py-1 align-top">
+                                                {children}
+                                            </td>
+                                        ),
+                                        // Handle lists if needed, though 'nice and simple' was requested
+                                        ul: ({ children }) => <ul className="list-disc pl-4">{children}</ul>,
+                                        ol: ({ children }) => <ol className="list-decimal pl-4">{children}</ol>,
+                                    }}
+                                >
+                                    {response}
+                                </ReactMarkdown>
+                                </>
+                            ) : (
+                                <span>{isGenerating ? 'Generating response...' : 'Output'}</span>
+                            )}
+                            {isGenerating && (
+                                <span className="inline-block w-2 h-6 ml-2 bg-foreground/60 animate-pulse" />
+                            )}
+                        </div>
+                        
+                        {/* Add padding at bottom to prevent content from being hidden behind button */}
+                        <div className="h-20"></div>
                     </div>
 
-                    {/* Play/Stop button - Bottom Right */}
+                    {/* Play/Stop button - Fixed at Bottom Right (outside scrollable content) */}
                     {response && !isGenerating && (
-                        <div className="absolute bottom-4 right-4">
+                        <div className="absolute bottom-4 right-4 pointer-events-none">
                             <button
                                 onClick={() => {
                                     if (showActiveState && onStopAudio) {
@@ -215,7 +351,7 @@ export default function PartyBPanel({
                                         onPlayAudio(response, languages[0] || 'en', 'response');
                                     }
                                 }}
-                                className={`p-3 rounded-full transition-all shadow-lg ${showActiveState
+                                className={`p-3 rounded-full transition-all shadow-lg pointer-events-auto ${showActiveState
                                     ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                                     : 'bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted'
                                     }`}

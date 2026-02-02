@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { AudioVisualizer } from '@/components/shared/AudioVisualizer';
 import { getApiUrl } from '@/lib/config/api';
+import { getLLMHeaders } from '@/lib/config/llm-config';
 import { sendEvent } from '@/lib/analytics';
+import { sttService } from '@/lib/services/audio';
 
 // Inline SVGs to avoid dependency issues
 const SparklesIcon = ({ className }: { className?: string }) => (
@@ -94,6 +96,25 @@ const CheckIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
+const HistoryIcon = ({ className }: { className?: string }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+    >
+        <path d="M3 3v5h5" />
+        <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+        <path d="M12 7v5l4 2" />
+    </svg>
+);
+
 const ShuffleIcon = ({ className }: { className?: string }) => (
     <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -131,6 +152,7 @@ interface ContextInputProps {
     maxAutoplayCount?: number;
     brandContent?: React.ReactNode;
     rightContent?: React.ReactNode;
+    onHistoryClick?: () => void;
 }
 
 export const ConvoContextInput: React.FC<ContextInputProps> = ({
@@ -142,7 +164,8 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     autoplayCount,
     maxAutoplayCount,
     brandContent,
-    rightContent
+    rightContent,
+    onHistoryClick
 }) => {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -156,12 +179,17 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     const handleSurpriseMe = async () => {
         setIsLoading(true);
         try {
-            // Use dedicated endpoint for random scenarios to avoid roleplay bias
+            // Use dedicated endpoint for random scenarios
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true',
+                ...getLLMHeaders()
+            };
+
             const response = await fetch(getApiUrl('/api/ai/scenario/random'), {
-                headers: {
-                    'ngrok-skip-browser-warning': 'true'
-                }
+                headers
             });
+
 
             if (!response.ok) throw new Error('Failed to generate context');
 
@@ -194,14 +222,18 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
         setError(null);
 
         try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true',
+                ...getLLMHeaders()
+            };
+
             const response = await fetch(getApiUrl('/api/ai/context'), {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
+                headers,
                 body: JSON.stringify({ text: input }),
             });
+
 
             if (!response.ok) {
                 throw new Error('Failed to set context');
@@ -227,44 +259,37 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
         }
     };
 
-    const handleMicClick = async () => {
-        if (isRecording) {
-            // STOP Recording & Process
-            setIsProcessingAudio(true);
-            try {
-                const blob = await stopRecording();
-                if (blob) {
-                    // Send to backend Whisper API
-                    const formData = new FormData();
-                    formData.append('audio', blob, 'recording.webm');
+    // STT listening state (unified for both browser and API modes via sttService)
+    const [isSTTListening, setIsSTTListening] = useState(false);
 
-                    const res = await fetch(getApiUrl('/api/audio/stt'), {
-                        method: 'POST',
-                        headers: {
-                            'ngrok-skip-browser-warning': 'true'
-                        },
-                        body: formData,
-                    });
-
-                    if (!res.ok) throw new Error('Transcription failed');
-
-                    const data = await res.json();
-                    if (data.text) {
-                        setInput(prev => (prev ? `${prev} ${data.text}` : data.text));
-                    }
-                }
-            } catch (err: any) {
-                console.error('Mic processing error:', err);
-                setError('Failed to process audio');
-            } finally {
-                setIsProcessingAudio(false);
-            }
+    const handleMicClick = useCallback(async () => {
+        if (isSTTListening) {
+            // Stop listening
+            sttService.stopListening();
+            setIsSTTListening(false);
         } else {
-            // START Recording
+            // Start listening via sttService (handles browser/API mode automatically)
             setError(null);
-            await startRecording();
+            try {
+                await sttService.startListening('en-US', {
+                    onTranscript: (text, isFinal) => {
+                        if (isFinal) {
+                            setInput(prev => (prev ? `${prev} ${text}` : text));
+                        }
+                    },
+                    onError: (err) => {
+                        console.error('STT error:', err);
+                        setError(`Speech recognition error: ${err.message}`);
+                        setIsSTTListening(false);
+                    }
+                });
+                setIsSTTListening(true);
+            } catch (e: any) {
+                console.error('Failed to start STT:', e);
+                setError('Failed to start speech recognition');
+            }
         }
-    };
+    }, [isSTTListening]);
 
     const renderCollapsed = () => (
         <div className={`relative w-full max-w-2xl mx-auto group`}>
@@ -350,7 +375,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
             {/* Ambient Glow */}
             <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
-            <div className={`relative flex items-center bg-card border transition-all duration-300 rounded-full shadow-lg overflow-hidden ${isRecording ? 'border-primary/50 bg-background' : 'border-border hover:border-primary/20 focus-within:border-primary/30'}`}>
+            <div className={`relative flex items-center bg-card border transition-all duration-300 rounded-full shadow-lg overflow-hidden ${(isRecording || isSTTListening) ? 'border-primary/50 bg-background' : 'border-border hover:border-primary/20 focus-within:border-primary/30'}`}>
                 {/* Icon / Status */}
                 <div className="pl-3 md:pl-5 text-primary">
                     <SparklesIcon className="w-4 h-4 md:w-5 md:h-5 opacity-80" />
@@ -363,7 +388,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                     placeholder={
                         isProcessingAudio ? "Processing audio..." :
                             isLoading ? (input ? "Setting context..." : "Generating context...") :
-                                isRecording ? "Listening..." :
+                                (isRecording || isSTTListening) ? "Listening..." :
                                     "Lets have a conversation... "
                     }
                     className="flex-1 min-w-0 bg-transparent border-none placeholder-muted-foreground/60 px-3 py-3 md:px-4 md:py-4 focus:outline-none focus:ring-0 text-sm md:text-base font-light tracking-wide text-foreground transition-colors duration-300"
@@ -374,19 +399,23 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                 {/* Audio Visualizer - Centered absolutely */}
                 <AudioVisualizer
                     stream={mediaStream}
-                    isRecording={isRecording}
+                    isRecording={isRecording || isSTTListening}
                     className="opacity-60 mix-blend-screen"
                 />
 
                 {/* Right Actions */}
                 <div className="pr-1 md:pr-2 flex items-center gap-0.5 md:gap-1 shrink-0">
-                    {/* Cancel Button (Visible only when Recording) */}
-                    {isRecording && (
+                    {/* Cancel Button (Visible only when Recording/Listening) */}
+                    {(isRecording || isSTTListening) && (
                         <button
                             type="button"
                             onClick={async () => {
-                                // Just stop and reset, don't process
-                                await stopRecording(); // Just to clean up streams
+                                if (isSTTListening) {
+                                    sttService.stopListening();
+                                    setIsSTTListening(false);
+                                } else {
+                                    await stopRecording();
+                                }
                                 setInput(''); // Clear input
                             }}
                             className="p-1.5 md:p-3 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-300"
@@ -410,8 +439,21 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                         </button>
                     )}
 
+                    {/* History Button */}
+                    {!(isRecording || isSTTListening) && onHistoryClick && (
+                        <button
+                            type="button"
+                            onClick={onHistoryClick}
+                            disabled={isLoading || isProcessingAudio}
+                            className="p-1.5 md:p-3 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-all duration-300"
+                            title="Conversation History"
+                        >
+                            <HistoryIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                        </button>
+                    )}
+
                     {/* Surprise / Remix Button */}
-                    {!isRecording && (
+                    {!(isRecording || isSTTListening) && (
                         <button
                             type="button"
                             onClick={handleSurpriseMe}
@@ -428,15 +470,15 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                         type="button"
                         onClick={handleMicClick}
                         disabled={isLoading || isProcessingAudio}
-                        className={`p-1.5 md:p-3 rounded-full transition-all duration-300 ${isRecording
+                        className={`p-1.5 md:p-3 rounded-full transition-all duration-300 ${(isRecording || isSTTListening)
                             ? 'bg-blue-500/20 text-blue-500 hover:bg-blue-500/30'
                             : 'hover:bg-muted text-muted-foreground hover:text-foreground'
                             }`}
-                        title={isRecording ? "Finish & Process" : "Start Voice Input"}
+                        title={(isRecording || isSTTListening) ? "Stop Listening" : "Start Voice Input"}
                     >
                         {isProcessingAudio ? (
                             <LoaderIcon className="w-3.5 h-3.5 md:w-5 md:h-5 animate-spin text-primary" />
-                        ) : isRecording ? (
+                        ) : (isRecording || isSTTListening) ? (
                             <CheckIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
                         ) : (
                             <MicIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
@@ -446,7 +488,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                     {/* Submit Button */}
                     <button
                         type="submit"
-                        disabled={!input.trim() || isLoading || isRecording}
+                        disabled={!input.trim() || isLoading || isRecording || isSTTListening}
                         className="p-1.5 md:p-3 rounded-full bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 transform ml-0.5 md:ml-1"
                     >
                         {isLoading ? (
@@ -456,6 +498,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                         )}
                     </button>
                 </div>
+
 
                 {/* Loading Bar */}
                 {(isLoading || isProcessingAudio) && (

@@ -17,6 +17,7 @@ interface TextInputPanelProps {
     onToggleAudio: () => void;
     audioTranscript: string;
     lastSubmission?: { text: string; timestamp: number } | null;
+    onResendLastSubmission?: (text: string) => void;
     isAudioPlaying?: boolean;
     onPlayTTS?: (text: string) => void;
     onStopTTS?: () => void;
@@ -57,6 +58,7 @@ export default function TextInputPanel({
     onToggleAudio,
     audioTranscript,
     lastSubmission,
+    onResendLastSubmission,
     isAudioPlaying,
     onPlayTTS,
     onStopTTS,
@@ -97,6 +99,27 @@ export default function TextInputPanel({
                                         }`}>
                                         SENT
                                     </span>
+                                    {onResendLastSubmission && lastSubmission && (
+                                        <button
+                                            onClick={() => {
+                                                onResendLastSubmission(lastSubmission.text);
+                                                sendEvent({
+                                                    action: 'message_resent',
+                                                    params: {
+                                                        char_count: lastSubmission.text.length,
+                                                        language: (languages[0] || 'en'),
+                                                        type: 'text'
+                                                    }
+                                                });
+                                            }}
+                                            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 transition-all"
+                                            title="Resend"
+                                        >
+                                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M3 12a9 9 0 0 1 9-9 9 9 0 0 1 6.36 2.64L21 8V3h-5l2.29 2.29A7 7 0 1 0 19 12h-2a5 5 0 1 1-5-5c1.3 0 2.5.5 3.4 1.3L13 11h8V3l-2.2 2.2A9 9 0 0 0 12 3a9 9 0 0 0-9 9h0z" />
+                                            </svg>
+                                        </button>
+                                    )}
 
                                     {/* Speaking Indicator (Only visible here when playing) */}
                                     {showActiveState && (

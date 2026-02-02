@@ -5,6 +5,7 @@
 
 import { TranslationProvider } from './types';
 import { API_BASE_URL } from '@/lib/config/api';
+import { getLLMHeaders } from '@/lib/config/llm-config';
 
 
 export class APITranslationProvider implements TranslationProvider {
@@ -51,12 +52,15 @@ export class APITranslationProvider implements TranslationProvider {
         if (!text || targetLangs.length === 0) return {};
 
         try {
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'ngrok-skip-browser-warning': 'true',
+                ...getLLMHeaders()
+            };
+
             const response = await fetch(`${API_BASE_URL}/api/ai/translate/multiple`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
+                headers,
                 body: JSON.stringify({
                     text,
                     source_lang: sourceLang,

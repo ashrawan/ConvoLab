@@ -24,6 +24,7 @@ interface PartyAPanelProps {
     onInputChange: (text: string) => void;
     onSubmit: () => void;
     lastSubmission?: { text: string; timestamp: number } | null;
+    onResendLastSubmission?: (text: string) => void;
 
     // Audio
     audioActive: boolean;
@@ -62,6 +63,9 @@ interface PartyAPanelProps {
     // Translations Collapsible
     isTranslationsCollapsed?: boolean;
     onToggleTranslations?: () => void;
+
+    // History Handler
+    onHistoryClick?: () => void;
 }
 
 export default function PartyAPanel({
@@ -80,6 +84,7 @@ export default function PartyAPanel({
     onInputChange,
     onSubmit,
     lastSubmission,
+    onResendLastSubmission,
 
     audioActive,
     onToggleAudio,
@@ -108,6 +113,7 @@ export default function PartyAPanel({
     onTogglePhrases,
     isTranslationsCollapsed = true,
     onToggleTranslations,
+    onHistoryClick
 }: PartyAPanelProps) {
     // Resizable top section height (in pixels, will be calculated from container)
     const containerRef = useRef<HTMLDivElement>(null);
@@ -153,6 +159,7 @@ export default function PartyAPanel({
                 onAudioEnabledChange={onAudioEnabledChange}
                 videoVisible={videoActive}
                 onVideoVisibleChange={onVideoToggle}
+                onHistoryClick={onHistoryClick}
             />
 
             {/* Top Section - Text Input + Translations (Resizable) */}
@@ -180,6 +187,7 @@ export default function PartyAPanel({
                             onToggleAudio={onToggleAudio}
                             audioTranscript={audioTranscript}
                             lastSubmission={lastSubmission}
+                            onResendLastSubmission={onResendLastSubmission}
                             // Only show as playing if specifically the 'lastSent' key is active
                             isAudioPlaying={currentlyPlayingKey === 'lastSent'}
                             onPlayTTS={(text) => onPlayAudio(text, languages[0] || 'en', 'lastSent')}

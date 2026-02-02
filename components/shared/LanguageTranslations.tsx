@@ -20,6 +20,20 @@ interface LanguageTranslationsProps {
     customStatus?: string | null; // For custom status text override
 }
 
+// Inline ChevronDown icon
+const ChevronDownIcon = ({ className }: { className?: string }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+);
+
+// Inline ChevronUp icon
+const ChevronUpIcon = ({ className }: { className?: string }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+    </svg>
+);
+
 // Helper to render highlighted text preserving whitespace
 const renderHighlightedText = (text: string, activeIndex: number) => {
     let wordCount = 0;
@@ -59,6 +73,7 @@ export default function LanguageTranslations({
     customStatus
 }: LanguageTranslationsProps) {
     const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
+    const [isExpanded, setIsExpanded] = useState<boolean>(true); // Default to expanded
 
     // Sync selected languages with prop changes
     useEffect(() => {
@@ -86,31 +101,45 @@ export default function LanguageTranslations({
 
     return (
         <div className="border-t border-border bg-card p-2 md:p-3">
-            {/* Header section - only show if we have content to display */}
-            {(showLastMessage || !hideSelector || excludePrimary) && (
-                <div className="flex items-center justify-between mb-3">
+            {/* Header section with expand/collapse toggle */}
+            <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3 flex-1">
+                    {/* Expand/Collapse Toggle */}
+                    <button
+                        onClick={() => setIsExpanded(!isExpanded)}
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                        title={isExpanded ? "Collapse translations" : "Expand translations"}
+                    >
+                        {isExpanded ? (
+                            <ChevronUpIcon className="w-4 h-4" />
+                        ) : (
+                            <ChevronDownIcon className="w-4 h-4" />
+                        )}
+                        <span className="text-xs font-medium">
+                            {isExpanded ? 'Collapse' : 'Expand'}
+                        </span>
+                    </button>
+
                     {showLastMessage && inputText && (
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-1 flex-1">
                             <span className="text-xs text-muted-foreground uppercase tracking-wide">Last Message</span>
                             <span className="text-sm text-foreground line-clamp-2">{inputText}</span>
                         </div>
                     )}
-                    {/* {excludePrimary && !showLastMessage && (
-                        <span className="text-xs text-gray-500 uppercase tracking-wide">Translations</span>
-                    )} */}
-                    {!hideSelector && (
-                        <LanguageSelector
-                            availableLanguages={languages}
-                            selectedLanguages={selectedLanguages}
-                            onLanguagesChange={setSelectedLanguages}
-                            primaryLanguage={languages[0]}
-                            label="Select languages"
-                        />
-                    )}
                 </div>
-            )}
+                
+                {!hideSelector && (
+                    <LanguageSelector
+                        availableLanguages={languages}
+                        selectedLanguages={selectedLanguages}
+                        onLanguagesChange={setSelectedLanguages}
+                        primaryLanguage={languages[0]}
+                        label="Select languages"
+                    />
+                )}
+            </div>
 
-            {languagesToShow.length > 0 ? (
+            {isExpanded && languagesToShow.length > 0 ? (
                 <div className="space-y-1 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                     {languagesToShow.map((lang, idx) => {
                         const isPrimary = lang === languages[0];
@@ -194,9 +223,9 @@ export default function LanguageTranslations({
                         );
                     })}
                 </div>
-            ) : (
+            ) : isExpanded ? (
                 <p className="text-xs text-muted-foreground mt-2">Select languages</p>
-            )}
+            ) : null}
         </div>
     );
 }
