@@ -47,3 +47,9 @@ export const getNotebookById = (id: string): NotebookDoc | null => {
     return notebooks.find(item => item.id === id) || null;
 };
 
+export const deleteNotebook = (id: string) => {
+    const notebooks = loadNotebooks();
+    const next = notebooks.filter(item => item.id !== id);
+    saveNotebooks(next);
+};
+

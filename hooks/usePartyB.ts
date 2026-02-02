@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { PhrasePrediction, chatService, getConversationSuggestions } from '@/lib/services/llm';
+import type { NotebookContext } from '@/lib/services/llm';
 import { translationService } from '@/lib/services';
 import { sequentialAudioPlayer } from '@/lib/utils/audio-player';
 import { playbackController, PlaybackMode, PlaybackItem } from '@/lib/utils/playback-controller';
@@ -127,7 +128,8 @@ export function usePartyB(
     const generateResponse = useCallback(async (
         userInput: string,
         history: { role: string, content: string }[] = [],
-        partyAContext: string = ""
+        partyAContext: string = "",
+        notebook?: NotebookContext
     ) => {
         if (!userInput.trim()) {
             setResponse('');
@@ -154,7 +156,8 @@ export function usePartyB(
                 source_lang: sourceLang,
                 return_lang: languages[0],
                 stream: true,
-                history: history
+                history: history,
+                notebook
             });
 
             if (!res.ok) {

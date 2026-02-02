@@ -5,9 +5,15 @@ import { getLLMRequestConfig } from '@/lib/ai/llm-request';
 
 export const runtime = 'edge';
 
+const truncateNotebook = (content: string, maxChars: number = 3000) => {
+    const normalized = content.trim();
+    if (normalized.length <= maxChars) return normalized;
+    return `${normalized.slice(0, maxChars)}\n...[truncated]`;
+};
+
 export async function POST(req: NextRequest) {
     try {
-        const { party_a_context, party_b_context, party_a_lang, conversation_summary, recent_history } = await req.json();
+        const { party_a_context, party_b_context, party_a_lang, conversation_summary, recent_history, history, notebook } = await req.json();
 
         const { apiKey, model, provider } = getLLMRequestConfig(req);
 
@@ -18,7 +24,7 @@ export async function POST(req: NextRequest) {
                 const pyRes = await fetch(`${backendUrl}/api/ai/autoplay/generate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ party_a_context, party_b_context, party_a_lang, conversation_summary, recent_history })
+                    body: JSON.stringify({ party_a_context, party_b_context, party_a_lang, conversation_summary, recent_history, history, notebook })
                 });
                 return NextResponse.json(await pyRes.json(), { status: pyRes.status });
             } catch (err) {
@@ -27,13 +33,28 @@ export async function POST(req: NextRequest) {
         }
 
         // --- Next.js Logic ---
-        const historyText = (recent_history && recent_history.length > 0) ? "Recent conversation:\n" + recent_history.map((msg: any) => {
-            const role = msg.role === 'party_a' ? 'You' : 'Response';
+        const effectiveHistory = (recent_history && recent_history.length > 0)
+            ? recent_history
+            : (history && history.length > 0)
+                ? history
+                : [];
+
+        const historyText = (effectiveHistory && effectiveHistory.length > 0) ? "Recent conversation:\n" + effectiveHistory.map((msg: any) => {
+            const role = (msg.role === 'party_a' || msg.role === 'user') ? 'You' : 'Response';
             return `${role}: ${msg.content}`;
         }).join('\n') : "No previous conversation history. You are starting the conversation.";
 
+        const notebookSnippet = notebook?.content
+            ? `\nNotebook reference (follow and explain this content):\nTitle: ${notebook.title || 'Untitled'}\n${truncateNotebook(notebook.content)}`
+            : '';
+
         const langName = getLangName(party_a_lang);
-        const prompt = prompts.autoPlay(party_a_context, party_b_context, historyText, langName);
+        const prompt = prompts.autoPlay(
+            party_a_context,
+            party_b_context,
+            `${historyText}${notebookSnippet}`,
+            langName
+        );
 
         let content = "";
         if (provider === 'anthropic') {

@@ -3,9 +3,15 @@ import { getLLMRequestConfig } from '@/lib/ai/llm-request';
 
 export const runtime = 'edge';
 
+const truncateNotebook = (content: string, maxChars: number = 4000) => {
+    const normalized = content.trim();
+    if (normalized.length <= maxChars) return normalized;
+    return `${normalized.slice(0, maxChars)}\n...[truncated]`;
+};
+
 export async function POST(req: NextRequest) {
     try {
-        const { message, party_a_context, party_b_context, source_lang, return_lang, history, stream } = await req.json();
+        const { message, party_a_context, party_b_context, source_lang, return_lang, history, stream, notebook } = await req.json();
 
         // Get API Key and Model from Headers
         const { apiKey, model, provider } = getLLMRequestConfig(req);
@@ -14,7 +20,7 @@ export async function POST(req: NextRequest) {
             // Fallback to Python Backend
             const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
             try {
-                const body = { message, party_a_context, party_b_context, source_lang, return_lang, history, stream };
+                const body = { message, party_a_context, party_b_context, source_lang, return_lang, history, stream, notebook };
                 const pyRes = await fetch(`${backendUrl}/api/ai/respond`, {
                     method: 'POST',
                     headers: {
@@ -70,12 +76,21 @@ export async function POST(req: NextRequest) {
             languageInstruction += `\n- NOTE: User is speaking in ${sourceLangName} (${source_lang}), but you MUST respond in ${returnLangName}.`;
         }
 
+        const notebookSnippet = notebook?.content
+            ? `Notebook reference (use this as ground truth):\nTitle: ${notebook.title || 'Untitled'}\n${truncateNotebook(notebook.content)}\n`
+            : '';
+        const notebookRule = notebook?.content
+            ? '- If a notebook reference is provided, ground responses in it and explain it clearly.'
+            : '';
+
         const systemPrompt = `${roleDescription}
+${notebookSnippet}
 
 You are a high-signal, human-sounding partner who adapts to the user's level and domain.
 
 Guidelines:
 ${languageInstruction}
+${notebookRule}
 - Match the user's expertise, needs, and tone (beginner, professional, expert, creative, emotional).
 - Be concise and clear; default to 1-4 short sentences unless asked for depth.
 - Be practical and specific; avoid fluff or generic advice.

@@ -362,17 +362,15 @@ export function usePartyA(
         }
     }, [buildMode, updateAI]); // Removed fetchPredictions dependency, added updateAI
 
-    const handleManualSubmit = useCallback(async () => {
-        // Clear any pending auto-submission
+    const submitText = useCallback(async (text: string) => {
         if (submissionTimer.current) clearTimeout(submissionTimer.current);
 
-        const trimmed = input.trim();
+        const trimmed = text.trim();
         if (!trimmed) return;
 
         // Allow re-submitting same text if manually clicked
         lastProcessedInput.current = trimmed;
 
-        // Return promise for external awaiting
         return new Promise<{ text: string, translations: Record<string, string> } | void>(async (resolve) => {
             // Clear input immediately for responsiveness
             setInput('');
@@ -398,18 +396,18 @@ export function usePartyA(
             setLastSentTranslations(finalTranslations);
 
             // Playback based on mode (skip if simulation is controlling)
-            // - 'audio': auto-play audio
-            // - 'highlight': auto-highlight (no audio)
-            // - 'manual': NO auto-play - user explicitly clicks play button
             if (!isSimulationControlledRef.current) {
                 if (playbackModeRef.current === 'audio' || playbackModeRef.current === 'highlight') {
                     playBatchAudio(trimmed, finalTranslations);
                 }
             }
-            // 'manual' mode or simulation controlled: no auto-play
             resolve({ text: trimmed, translations: finalTranslations });
         });
-    }, [input, playBatchAudio]); // Removed autoPlay/audioEnabledLanguages form dependency as we use refs
+    }, [playBatchAudio]);
+
+    const handleManualSubmit = useCallback(async () => {
+        return submitText(input);
+    }, [input, submitText]);
 
     const resendLastSubmission = useCallback((text?: string) => {
         const message = (text ?? submissionRef.current?.text)?.trim();
@@ -642,7 +640,7 @@ export function usePartyA(
         actions: {
             setContext, setLanguages: setLanguagesWithPersistence, setInput,
             setAudioEnabledLanguages, setBuildMode, setIsPhrasesCollapsed, setIsTranslationsCollapsed,
-            handleInput, handleManualSubmit, handleWordSelect, submitPhrase,
+            handleInput, handleManualSubmit, submitText, handleWordSelect, submitPhrase,
             startAudio, stopAudio, stopAllAudio, toggleVideo, reset, playAudio, playSequence,
             simulatePlayback, setCustomStatus, stopSimulation, resendLastSubmission
         },

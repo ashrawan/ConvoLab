@@ -20,8 +20,6 @@ const renderHighlightedText = (text: string, activeIndex: number) => {
     });
 };
 
-const MAX_HEADING_CHARS = 15;
-
 const slugify = (value: string) => value
     .toLowerCase()
     .trim()
@@ -137,22 +135,11 @@ export default function PartyBPanel({
     // Resizable top section height (in pixels)
     const containerRef = useRef<HTMLDivElement>(null);
     const topSectionRef = useRef<HTMLDivElement>(null);
+    const responseScrollRef = useRef<HTMLDivElement>(null);
     const [topSectionHeight, setTopSectionHeight] = useState<number | null>(null);
     const [translationsHeight, setTranslationsHeight] = useState<number>(120); // Default 120px
     // Internal state removed in favor of props control
     const headingSluggerRef = useRef(createSlugger());
-    const headings = useMemo(() => {
-        if (!response) return [];
-        const slugger = createSlugger();
-        const matches = response.matchAll(/^(#{1,6})\s+(.+)$/gm);
-        const items: Array<{ text: string; slug: string }> = [];
-        for (const match of matches) {
-            const text = match[2].trim();
-            if (!text) continue;
-            items.push({ text, slug: slugger.slug(text) });
-        }
-        return items;
-    }, [response]);
     headingSluggerRef.current.reset();
 
     const handleResize = useCallback((delta: number) => {
@@ -200,8 +187,13 @@ export default function PartyBPanel({
             >
                 {/* Response Area - Wrapper for scrollable content and fixed button */}
                 <div className="flex-1 relative min-h-0">
+                    {(isGenerating || isTranslating) && (
+                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-transparent pointer-events-none">
+                            <div className="h-full bg-gradient-to-r from-transparent via-primary/70 to-transparent animate-pulse" />
+                        </div>
+                    )}
                     {/* Scrollable Content */}
-                    <div className="absolute inset-0 p-6 overflow-y-auto custom-scrollbar">
+                    <div ref={responseScrollRef} className="absolute inset-0 p-6 overflow-y-auto custom-scrollbar">
                         {/* Speaking/Reading/Custom indicator - Top */}
                         {showActiveState && response && (
                             <div className="flex items-center gap-2 mb-2 opacity-80">
@@ -217,7 +209,7 @@ export default function PartyBPanel({
                         )}
 
                         {/* Response Text */}
-                        <div className={`text-lg leading-relaxed whitespace-pre-wrap transition-colors duration-300 text-foreground ${customStatus ? 'opacity-80' : ''}`}>
+                        <div className={`text-lg leading-relaxed transition-colors duration-300 text-foreground ${customStatus ? 'opacity-80' : ''}`}>
                             {error && !isGenerating ? (
                                 <div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
                                     {error}
@@ -225,109 +217,46 @@ export default function PartyBPanel({
                             ) : currentlyPlayingKey === 'response' && highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
                                 renderHighlightedText(response, highlightedWordIndex)
                             ) : response ? (
-                                <>
-                                    {headings.length > 0 && (
-                                        <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
-                                            {headings.map(heading => (
-                                                <button
-                                                    key={heading.slug}
-                                                    type="button"
-                                                    className="shrink-0 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                                                    title={heading.text}
-                                                    onClick={() => {
-                                                        const el = document.getElementById(heading.slug);
-                                                        if (el) {
-                                                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                                                        }
-                                                    }}
-                                                >
-                                                    <span className="truncate" style={{ maxWidth: `${MAX_HEADING_CHARS}ch` }}>
-                                                        {heading.text}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                <ReactMarkdown
-                                    remarkPlugins={[remarkGfm]}
-                                    components={{
-                                        p: ({ children }) => <span className="block last:mb-0">{children}</span>,
-                                        strong: ({ children }) => <span className="font-bold">{children}</span>,
-                                        em: ({ children }) => <span className="italic opacity-80">{children}</span>,
-                                        h1: ({ children }) => {
-                                            const text = getNodeText(children);
-                                            const id = headingSluggerRef.current.slug(text);
-                                            return <h3 id={id} className="mt-4 mb-2 text-sm font-semibold text-foreground scroll-mt-20">{children}</h3>;
-                                        },
-                                        h2: ({ children }) => {
-                                            const text = getNodeText(children);
-                                            const id = headingSluggerRef.current.slug(text);
-                                            return <h3 id={id} className="mt-4 mb-2 text-sm font-semibold text-foreground scroll-mt-20">{children}</h3>;
-                                        },
-                                        h3: ({ children }) => {
-                                            const text = getNodeText(children);
-                                            const id = headingSluggerRef.current.slug(text);
-                                            return <h4 id={id} className="mt-3 mb-1 text-sm font-semibold text-foreground scroll-mt-20">{children}</h4>;
-                                        },
-                                        h4: ({ children }) => {
-                                            const text = getNodeText(children);
-                                            const id = headingSluggerRef.current.slug(text);
-                                            return <h5 id={id} className="mt-3 mb-1 text-xs font-semibold text-foreground scroll-mt-20">{children}</h5>;
-                                        },
-                                        h5: ({ children }) => {
-                                            const text = getNodeText(children);
-                                            const id = headingSluggerRef.current.slug(text);
-                                            return <h6 id={id} className="mt-2 mb-1 text-xs font-semibold text-foreground scroll-mt-20">{children}</h6>;
-                                        },
-                                        h6: ({ children }) => {
-                                            const text = getNodeText(children);
-                                            const id = headingSluggerRef.current.slug(text);
-                                            return <h6 id={id} className="mt-2 mb-1 text-xs font-semibold text-foreground scroll-mt-20">{children}</h6>;
-                                        },
-                                        code: (props) => {
-                                            const { className, children, ...rest } = props;
-                                            const isInline = Boolean((props as { inline?: boolean }).inline);
-                                            if (isInline) {
-                                                return (
-                                                    <code className="px-1 py-0.5 rounded bg-muted text-foreground font-mono text-sm" {...rest}>
-                                                        {children}
-                                                    </code>
-                                                );
-                                            }
-                                            return (
-                                                <code className={className} {...rest}>
+                                <div className="prose prose-invert max-w-none space-y-3">
+                                    <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
+                                        components={{
+                                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                            em: ({ children }) => <em className="italic opacity-80">{children}</em>,
+                                            h1: ({ children }) => <h3 className="mt-5 mb-2 text-sm font-semibold text-foreground">{children}</h3>,
+                                            h2: ({ children }) => <h3 className="mt-5 mb-2 text-sm font-semibold text-foreground">{children}</h3>,
+                                            h3: ({ children }) => <h4 className="mt-4 mb-1 text-sm font-semibold text-foreground">{children}</h4>,
+                                            h4: ({ children }) => <h5 className="mt-3 mb-1 text-xs font-semibold text-foreground">{children}</h5>,
+                                            h5: ({ children }) => <h6 className="mt-3 mb-1 text-xs font-semibold text-foreground">{children}</h6>,
+                                            h6: ({ children }) => <h6 className="mt-3 mb-1 text-xs font-semibold text-foreground">{children}</h6>,
+                                            ul: ({ children }) => <ul className="list-disc pl-5 space-y-1">{children}</ul>,
+                                            ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1">{children}</ol>,
+                                            li: ({ children }) => <li>{children}</li>,
+                                            code: ({ children }) => <code className="px-1 py-0.5 rounded bg-muted text-xs">{children}</code>,
+                                            pre: ({ children }) => (
+                                                <pre className="bg-muted/40 p-3 rounded-md overflow-x-auto text-xs leading-relaxed">{children}</pre>
+                                            ),
+                                            table: ({ children }) => (
+                                                <div className="my-3 overflow-x-auto">
+                                                    <table className="w-full text-left border-collapse">{children}</table>
+                                                </div>
+                                            ),
+                                            th: ({ children }) => (
+                                                <th className="border-b border-border px-2 py-1 text-xs font-semibold text-muted-foreground">
                                                     {children}
-                                                </code>
-                                            );
-                                        },
-                                        pre: ({ children }) => (
-                                            <pre className="my-3 p-3 rounded-md bg-muted/50 text-foreground overflow-x-auto">
-                                                {children}
-                                            </pre>
-                                        ),
-                                        table: ({ children }) => (
-                                            <div className="my-3 overflow-x-auto">
-                                                <table className="w-full text-left border-collapse">{children}</table>
-                                            </div>
-                                        ),
-                                        th: ({ children }) => (
-                                            <th className="border-b border-border px-2 py-1 text-xs font-semibold text-muted-foreground">
-                                                {children}
-                                            </th>
-                                        ),
-                                        td: ({ children }) => (
-                                            <td className="border-b border-border px-2 py-1 align-top">
-                                                {children}
-                                            </td>
-                                        ),
-                                        // Handle lists if needed, though 'nice and simple' was requested
-                                        ul: ({ children }) => <ul className="list-disc pl-4">{children}</ul>,
-                                        ol: ({ children }) => <ol className="list-decimal pl-4">{children}</ol>,
-                                    }}
-                                >
-                                    {response}
-                                </ReactMarkdown>
-                                </>
+                                                </th>
+                                            ),
+                                            td: ({ children }) => (
+                                                <td className="border-b border-border px-2 py-1 align-top">
+                                                    {children}
+                                                </td>
+                                            )
+                                        }}
+                                    >
+                                        {response}
+                                    </ReactMarkdown>
+                                </div>
                             ) : (
                                 <span>{isGenerating ? 'Generating response...' : 'Output'}</span>
                             )}

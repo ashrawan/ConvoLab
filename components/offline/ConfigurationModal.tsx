@@ -25,9 +25,9 @@ const PROVIDERS: { id: Provider; name: string; icon: string }[] = LLM_PROVIDERS.
 type AudioProvider = 'openai' | 'deepgram' | 'elevenlabs';
 
 const AUDIO_PROVIDERS: { id: AudioProvider; name: string; type: 'tts' | 'stt' | 'both'; icon: string }[] = [
+    { id: 'elevenlabs', name: 'ElevenLabs', type: 'tts', icon: 'M3 10v4c0 .55.45 1 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71V6.41c0-.89-1.08-1.34-1.71-.71L7 9H4c-.55 0-1 .45-1 1zm13.5 2c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z' },
     { id: 'openai', name: 'OpenAI Audio', type: 'both', icon: 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z' },
     { id: 'deepgram', name: 'Deepgram', type: 'stt', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V8h2v4zm4 4h-2v-2h2v2zm0-4h-2V8h2v4z' }, // Simplified icon
-    { id: 'elevenlabs', name: 'ElevenLabs', type: 'tts', icon: 'M3 10v4c0 .55.45 1 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71V6.41c0-.89-1.08-1.34-1.71-.71L7 9H4c-.55 0-1 .45-1 1zm13.5 2c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z' }
 ];
 
 const STORAGE_KEYS = {

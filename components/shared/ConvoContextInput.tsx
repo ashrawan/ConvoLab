@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { AudioVisualizer } from '@/components/shared/AudioVisualizer';
@@ -6,6 +6,7 @@ import { getApiUrl } from '@/lib/config/api';
 import { getLLMHeaders } from '@/lib/config/llm-config';
 import { sendEvent } from '@/lib/analytics';
 import { sttService } from '@/lib/services/audio';
+import type { NotebookDoc } from '@/lib/utils/notebook-storage';
 
 // Inline SVGs to avoid dependency issues
 const SparklesIcon = ({ className }: { className?: string }) => (
@@ -115,6 +116,59 @@ const HistoryIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
+const ChatIcon = ({ className }: { className?: string }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+    >
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+    </svg>
+);
+
+const NotebookIcon = ({ className }: { className?: string }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+    >
+        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h10A2.5 2.5 0 0 1 19 5.5v13A2.5 2.5 0 0 1 16.5 21h-10A2.5 2.5 0 0 1 4 18.5v-13Z" />
+        <path d="M8 7h7M8 11h7M8 15h7" />
+    </svg>
+);
+
+const PlusIcon = ({ className }: { className?: string }) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={className}
+    >
+        <path d="M12 5v14" />
+        <path d="M5 12h14" />
+    </svg>
+);
+
 const ShuffleIcon = ({ className }: { className?: string }) => (
     <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -142,6 +196,8 @@ export interface ContextResponse {
     party_b: PartySettings;
 }
 
+type ConversationMode = 'conversation' | 'notebook';
+
 interface ContextInputProps {
     onContextSet: (data: ContextResponse) => void;
     className?: string;
@@ -153,6 +209,13 @@ interface ContextInputProps {
     brandContent?: React.ReactNode;
     rightContent?: React.ReactNode;
     onHistoryClick?: () => void;
+    mode?: ConversationMode;
+    onModeChange?: (mode: ConversationMode) => void;
+    notebooks?: NotebookDoc[];
+    selectedNotebookId?: string;
+    onNotebookSelect?: (id: string) => void;
+    onNotebookSend?: (text: string, notebook: NotebookDoc) => Promise<void> | void;
+    onOpenNotebookBuilder?: () => void;
 }
 
 export const ConvoContextInput: React.FC<ContextInputProps> = ({
@@ -165,16 +228,36 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     maxAutoplayCount,
     brandContent,
     rightContent,
-    onHistoryClick
+    onHistoryClick,
+    mode = 'conversation',
+    onModeChange,
+    notebooks = [],
+    selectedNotebookId,
+    onNotebookSelect,
+    onNotebookSend,
+    onOpenNotebookBuilder
 }) => {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [submittedText, setSubmittedText] = useState('');
+    const [submittedNotebookTitle, setSubmittedNotebookTitle] = useState<string | null>(null);
+    const [isNotebookLoading, setIsNotebookLoading] = useState(false);
+    const [notebookInput, setNotebookInput] = useState('');
 
     const { isRecording, startRecording, stopRecording, mediaStream, error: audioError } = useAudioRecorder();
     const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+
+    const isNotebookMode = mode === 'notebook';
+    const activeNotebook = notebooks.find((notebook) => notebook.id === selectedNotebookId) || null;
+
+    useEffect(() => {
+        setError(null);
+        setIsCollapsed(false);
+        setNotebookInput('');
+        setSubmittedNotebookTitle(null);
+    }, [mode]);
 
     const handleSurpriseMe = async () => {
         setIsLoading(true);
@@ -242,6 +325,7 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
             const data: ContextResponse = await response.json();
             onContextSet(data);
             setSubmittedText(input);
+            setSubmittedNotebookTitle(null);
             setIsCollapsed(true);
 
             sendEvent({
@@ -291,25 +375,94 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
         }
     }, [isSTTListening]);
 
-    const renderCollapsed = () => (
-        <div className={`relative w-full max-w-2xl mx-auto group`}>
-            <div className="flex items-center justify-center gap-2 bg-card border border-border rounded-full px-4 py-2">
-                {/* Context Text - Clickable to Edit */}
-                <div
-                    onClick={() => {
-                        setIsCollapsed(false);
-                        setInput(submittedText);
-                    }}
-                    className="flex items-center gap-3 flex-1 cursor-pointer hover:bg-accent rounded-full px-2 py-1 transition-all min-w-0"
-                >
-                    <SparklesIcon className="w-4 h-4 text-primary shrink-0" />
-                    <span className="text-muted-foreground text-xs md:text-sm font-light truncate">
-                        {submittedText}
-                    </span>
-                    <span className="text-[10px] md:text-xs text-muted-foreground bg-accent/50 px-2 py-1 rounded-md hover:bg-accent transition-colors shrink-0">
-                        Edit
-                    </span>
-                </div>
+    const handleNotebookSend = async () => {
+        if (!activeNotebook) {
+            setError('Select a notebook to continue.');
+            return;
+        }
+        if (!onNotebookSend) {
+            setError('Notebook mode is unavailable.');
+            return;
+        }
+
+        const trimmed = notebookInput.trim();
+        const message = trimmed || 'Simulate a conversation based on this notebook between two parties.';
+
+        setIsNotebookLoading(true);
+        setError(null);
+        try {
+            await onNotebookSend(message, activeNotebook);
+            setSubmittedNotebookTitle(activeNotebook.title || 'Notebook');
+            setNotebookInput('');
+            setIsCollapsed(true);
+            sendEvent({
+                action: 'context_submitted',
+                params: { method: 'notebook', notebook_id: activeNotebook.id }
+            });
+        } catch (err: any) {
+            setError(err?.message || 'Failed to start notebook conversation.');
+        } finally {
+            setIsNotebookLoading(false);
+        }
+    };
+
+    const renderModeTabs = () => (
+        <div className="flex flex-col items-center gap-1 bg-muted/30 border border-border rounded-full p-1 w-fit self-center">
+            <button
+                type="button"
+                onClick={() => onModeChange?.('conversation')}
+                className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${mode === 'conversation'
+                    ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                aria-label="Start Conversation"
+                title="Start Conversation"
+            >
+                <ChatIcon className="w-4 h-4" />
+            </button>
+            <button
+                type="button"
+                onClick={() => onModeChange?.('notebook')}
+                className={`w-7 h-7 flex items-center justify-center rounded-full transition-colors ${mode === 'notebook'
+                    ? 'bg-primary/20 text-primary border border-primary/30 shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                aria-label="Notebook to Conversation"
+                title="Notebook to Conversation"
+            >
+                <SparklesIcon className="w-4 h-4" />
+            </button>
+        </div>
+    );
+
+    const renderCollapsed = () => {
+        const label = isNotebookMode
+            ? (submittedNotebookTitle || activeNotebook?.title || 'Notebook selected')
+            : submittedText;
+
+        return (
+            <div className={`relative w-full max-w-2xl mx-auto group`}>
+                <div className="flex items-center justify-center gap-2 bg-card border border-border rounded-full px-4 py-2">
+                    {/* Context Text - Clickable to Edit */}
+                    <div
+                        onClick={() => {
+                            setIsCollapsed(false);
+                            if (!isNotebookMode) setInput(submittedText);
+                        }}
+                        className="flex items-center gap-3 flex-1 cursor-pointer hover:bg-accent rounded-full px-2 py-1 transition-all min-w-0"
+                    >
+                        {isNotebookMode ? (
+                            <NotebookIcon className="w-4 h-4 text-primary shrink-0" />
+                        ) : (
+                            <SparklesIcon className="w-4 h-4 text-primary shrink-0" />
+                        )}
+                        <span className="text-muted-foreground text-xs md:text-sm font-light truncate">
+                            {label}
+                        </span>
+                        <span className="text-[10px] md:text-xs text-muted-foreground bg-accent/50 px-2 py-1 rounded-md hover:bg-accent transition-colors shrink-0">
+                            Edit
+                        </span>
+                    </div>
 
                 {/* Divider */}
                 <div className="w-px h-6 bg-border" />
@@ -363,164 +516,256 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
                         </div>
                     </>
                 )}
+                </div>
             </div>
+        );
+    };
+
+    const renderConversationExpanded = () => (
+        <div className="relative w-full max-w-3xl mx-auto flex items-center gap-3">
+            <div className="shrink-0">
+                {renderModeTabs()}
+            </div>
+            <form
+                onSubmit={handleSubmit}
+                className={`relative w-full group`}
+            >
+                <div className="relative flex flex-col gap-2">
+                    {/* Ambient Glow */}
+                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+                    <div className={`relative flex items-center bg-card border transition-all duration-300 rounded-full shadow-lg overflow-hidden ${(isRecording || isSTTListening) ? 'border-primary/50 bg-background' : 'border-border hover:border-primary/20 focus-within:border-primary/30'}`}>
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder={
+                                isProcessingAudio ? "Processing audio..." :
+                                    isLoading ? (input ? "Setting context..." : "Generating context...") :
+                                        (isRecording || isSTTListening) ? "Listening..." :
+                                            "Lets have a conversation about... "
+                            }
+                        className="flex-1 min-w-0 bg-transparent border-none placeholder-muted-foreground/60 px-4 py-3 md:px-5 md:py-4 focus:outline-none focus:ring-0 text-sm md:text-base font-light tracking-wide text-foreground transition-colors duration-300"
+                            disabled={isLoading || isProcessingAudio}
+                            autoFocus
+                        />
+
+                        {/* Audio Visualizer - Centered absolutely */}
+                        <AudioVisualizer
+                            stream={mediaStream}
+                            isRecording={isRecording || isSTTListening}
+                            className="opacity-60 mix-blend-screen"
+                        />
+
+                        {/* Right Actions */}
+                        <div className="pr-1 md:pr-2 flex items-center gap-0.5 md:gap-1 shrink-0">
+                            {/* Cancel Button (Visible only when Recording/Listening) */}
+                            {(isRecording || isSTTListening) && (
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (isSTTListening) {
+                                            sttService.stopListening();
+                                            setIsSTTListening(false);
+                                        } else {
+                                            await stopRecording();
+                                        }
+                                        setInput(''); // Clear input
+                                    }}
+                                    className="p-1.5 md:p-3 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-300"
+                                    title="Cancel Recording"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="20"
+                                        height="20"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        className="w-3.5 h-3.5 md:w-5 md:h-5"
+                                    >
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </button>
+                            )}
+
+                            {/* History Button */}
+                            {!(isRecording || isSTTListening) && onHistoryClick && (
+                                <button
+                                    type="button"
+                                    onClick={onHistoryClick}
+                                    disabled={isLoading || isProcessingAudio}
+                                    className="p-1.5 md:p-3 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-all duration-300"
+                                    title="Conversation History"
+                                >
+                                    <HistoryIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                </button>
+                            )}
+
+                            {/* Surprise / Remix Button */}
+                            {!(isRecording || isSTTListening) && (
+                                <button
+                                    type="button"
+                                    onClick={handleSurpriseMe}
+                                    disabled={isLoading || isProcessingAudio}
+                                    className="p-1.5 md:p-3 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-all duration-300 group/surprise"
+                                    title={input ? "Remix this idea" : "Feeling Lucky (Conversation Context)"}
+                                >
+                                    <ShuffleIcon className="w-3.5 h-3.5 md:w-5 md:h-5 transition-transform duration-700 group-hover/surprise:rotate-180" />
+                                </button>
+                            )}
+
+                            {/* Mic/Process Button */}
+                            <button
+                                type="button"
+                                onClick={handleMicClick}
+                                disabled={isLoading || isProcessingAudio}
+                                className={`p-1.5 md:p-3 rounded-full transition-all duration-300 ${(isRecording || isSTTListening)
+                                    ? 'bg-blue-500/20 text-blue-500 hover:bg-blue-500/30'
+                                    : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+                                    }`}
+                                title={(isRecording || isSTTListening) ? "Stop Listening" : "Start Voice Input"}
+                            >
+                                {isProcessingAudio ? (
+                                    <LoaderIcon className="w-3.5 h-3.5 md:w-5 md:h-5 animate-spin text-primary" />
+                                ) : (isRecording || isSTTListening) ? (
+                                    <CheckIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                ) : (
+                                    <MicIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                )}
+                            </button>
+
+                            {/* Submit Button */}
+                            <button
+                                type="submit"
+                                disabled={!input.trim() || isLoading || isRecording || isSTTListening}
+                                className="p-1.5 md:p-3 rounded-full bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 transform ml-0.5 md:ml-1"
+                            >
+                                {isLoading ? (
+                                    <LoaderIcon className="w-3.5 h-3.5 md:w-5 md:h-5 animate-spin" />
+                                ) : (
+                                    <ArrowRightIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Loading Bar */}
+                        {(isLoading || isProcessingAudio) && (
+                            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-transparent pointer-events-none">
+                                <motion.div
+                                    className="h-full bg-gradient-to-r from-transparent via-purple-500 to-transparent"
+                                    initial={{ x: '-100%' }}
+                                    animate={{ x: '100%' }}
+                                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {(error || audioError) && (
+                    <div className="absolute top-full left-0 right-0 mt-3 flex justify-center">
+                        <span className="bg-destructive/10 border border-destructive/20 text-destructive text-xs px-3 py-1 rounded-full backdrop-blur-sm">
+                            {error || audioError}
+                        </span>
+                    </div>
+                )}
+            </form>
         </div>
     );
 
-    const renderExpanded = () => (
-        <form
-            onSubmit={handleSubmit}
-            className={`relative w-full max-w-3xl mx-auto group`}
-        >
-            {/* Ambient Glow */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-purple-500/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+    const renderNotebookExpanded = () => (
+        <div className="relative w-full max-w-3xl mx-auto flex items-center gap-3">
+            <div className="shrink-0">
+                {renderModeTabs()}
+            </div>
+            <form
+                onSubmit={(event) => {
+                    event.preventDefault();
+                    handleNotebookSend();
+                }}
+                className="relative w-full mx-auto group"
+            >
+                <div className="relative flex flex-col gap-2">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                    <div className="relative flex items-center bg-card border transition-all duration-300 rounded-full shadow-lg overflow-hidden border-border hover:border-primary/20 focus-within:border-primary/30">
 
-            <div className={`relative flex items-center bg-card border transition-all duration-300 rounded-full shadow-lg overflow-hidden ${(isRecording || isSTTListening) ? 'border-primary/50 bg-background' : 'border-border hover:border-primary/20 focus-within:border-primary/30'}`}>
-                {/* Icon / Status */}
-                <div className="pl-3 md:pl-5 text-primary">
-                    <SparklesIcon className="w-4 h-4 md:w-5 md:h-5 opacity-80" />
-                </div>
-
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={
-                        isProcessingAudio ? "Processing audio..." :
-                            isLoading ? (input ? "Setting context..." : "Generating context...") :
-                                (isRecording || isSTTListening) ? "Listening..." :
-                                    "Lets have a conversation... "
-                    }
-                    className="flex-1 min-w-0 bg-transparent border-none placeholder-muted-foreground/60 px-3 py-3 md:px-4 md:py-4 focus:outline-none focus:ring-0 text-sm md:text-base font-light tracking-wide text-foreground transition-colors duration-300"
-                    disabled={isLoading || isProcessingAudio}
-                    autoFocus
-                />
-
-                {/* Audio Visualizer - Centered absolutely */}
-                <AudioVisualizer
-                    stream={mediaStream}
-                    isRecording={isRecording || isSTTListening}
-                    className="opacity-60 mix-blend-screen"
-                />
-
-                {/* Right Actions */}
-                <div className="pr-1 md:pr-2 flex items-center gap-0.5 md:gap-1 shrink-0">
-                    {/* Cancel Button (Visible only when Recording/Listening) */}
-                    {(isRecording || isSTTListening) && (
-                        <button
-                            type="button"
-                            onClick={async () => {
-                                if (isSTTListening) {
-                                    sttService.stopListening();
-                                    setIsSTTListening(false);
-                                } else {
-                                    await stopRecording();
-                                }
-                                setInput(''); // Clear input
-                            }}
-                            className="p-1.5 md:p-3 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-300"
-                            title="Cancel Recording"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="20"
-                                height="20"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="w-3.5 h-3.5 md:w-5 md:h-5"
-                            >
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                        </button>
-                    )}
-
-                    {/* History Button */}
-                    {!(isRecording || isSTTListening) && onHistoryClick && (
-                        <button
-                            type="button"
-                            onClick={onHistoryClick}
-                            disabled={isLoading || isProcessingAudio}
-                            className="p-1.5 md:p-3 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-all duration-300"
-                            title="Conversation History"
-                        >
-                            <HistoryIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                        </button>
-                    )}
-
-                    {/* Surprise / Remix Button */}
-                    {!(isRecording || isSTTListening) && (
-                        <button
-                            type="button"
-                            onClick={handleSurpriseMe}
-                            disabled={isLoading || isProcessingAudio}
-                            className="p-1.5 md:p-3 rounded-full hover:bg-muted text-muted-foreground hover:text-primary transition-all duration-300 group/surprise"
-                            title={input ? "Remix this idea" : "Feeling Lucky (Conversation Context)"}
-                        >
-                            <ShuffleIcon className="w-3.5 h-3.5 md:w-5 md:h-5 transition-transform duration-700 group-hover/surprise:rotate-180" />
-                        </button>
-                    )}
-
-                    {/* Mic/Process Button */}
-                    <button
-                        type="button"
-                        onClick={handleMicClick}
-                        disabled={isLoading || isProcessingAudio}
-                        className={`p-1.5 md:p-3 rounded-full transition-all duration-300 ${(isRecording || isSTTListening)
-                            ? 'bg-blue-500/20 text-blue-500 hover:bg-blue-500/30'
-                            : 'hover:bg-muted text-muted-foreground hover:text-foreground'
-                            }`}
-                        title={(isRecording || isSTTListening) ? "Stop Listening" : "Start Voice Input"}
-                    >
-                        {isProcessingAudio ? (
-                            <LoaderIcon className="w-3.5 h-3.5 md:w-5 md:h-5 animate-spin text-primary" />
-                        ) : (isRecording || isSTTListening) ? (
-                            <CheckIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                        ) : (
-                            <MicIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                        )}
-                    </button>
-
-                    {/* Submit Button */}
-                    <button
-                        type="submit"
-                        disabled={!input.trim() || isLoading || isRecording || isSTTListening}
-                        className="p-1.5 md:p-3 rounded-full bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 transform ml-0.5 md:ml-1"
-                    >
-                        {isLoading ? (
-                            <LoaderIcon className="w-3.5 h-3.5 md:w-5 md:h-5 animate-spin" />
-                        ) : (
-                            <ArrowRightIcon className="w-3.5 h-3.5 md:w-5 md:h-5" />
-                        )}
-                    </button>
-                </div>
-
-
-                {/* Loading Bar */}
-                {(isLoading || isProcessingAudio) && (
-                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-transparent pointer-events-none">
-                        <motion.div
-                            className="h-full bg-gradient-to-r from-transparent via-purple-500 to-transparent"
-                            initial={{ x: '-100%' }}
-                            animate={{ x: '100%' }}
-                            transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                        <input
+                            type="text"
+                            value={notebookInput}
+                            onChange={(event) => setNotebookInput(event.target.value)}
+                            placeholder={activeNotebook ? 'Simulate a conversation based on this notebook...' : 'Select a notebook to begin'}
+                            className="flex-1 min-w-0 bg-transparent border-none placeholder-muted-foreground/60 px-3 py-3 md:px-4 md:py-4 focus:outline-none focus:ring-0 text-sm md:text-base font-light tracking-wide text-foreground transition-colors duration-300"
+                            disabled={isNotebookLoading}
                         />
+
+                        <div className="pr-1 md:pr-2 flex items-center gap-1 shrink-0">
+                            <select
+                                value={selectedNotebookId || ''}
+                                onChange={(event) => {
+                                    setError(null);
+                                    onNotebookSelect?.(event.target.value);
+                                }}
+                                disabled={isNotebookLoading}
+                                className="h-8 md:h-9 max-w-[180px] md:max-w-[220px] rounded-full border border-border bg-muted/30 px-3 text-[10px] md:text-xs text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/30"
+                                title="Select notebook"
+                            >
+                                <option value="" disabled>
+                                    {notebooks.length === 0 ? 'No notebooks' : 'Notebook'}
+                                </option>
+                                {notebooks.map((notebook) => (
+                                    <option key={notebook.id} value={notebook.id}>
+                                        {notebook.title || 'Untitled Notebook'}
+                                    </option>
+                                ))}
+                            </select>
+
+                            <button
+                                type="button"
+                                onClick={onOpenNotebookBuilder}
+                                className="p-1.5 md:p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+                                title="Build notebook"
+                            >
+                                <PlusIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                            </button>
+
+                        <button
+                            type="submit"
+                            disabled={!activeNotebook || isNotebookLoading}
+                            className="p-1.5 md:p-2 rounded-full bg-muted/30 hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                            title="Send"
+                        >
+                                {isNotebookLoading ? (
+                                    <LoaderIcon className="w-3.5 h-3.5 md:w-4 md:h-4 animate-spin" />
+                                ) : (
+                                    <ArrowRightIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {notebooks.length === 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-3 flex justify-center">
+                        <span className="bg-muted/40 border border-border text-muted-foreground text-xs px-3 py-1 rounded-full backdrop-blur-sm">
+                            Create a notebook to unlock notebook mode.
+                        </span>
                     </div>
                 )}
-            </div>
 
-            {(error || audioError) && (
-                <div className="absolute top-full left-0 right-0 mt-3 flex justify-center">
-                    <span className="bg-destructive/10 border border-destructive/20 text-destructive text-xs px-3 py-1 rounded-full backdrop-blur-sm">
-                        {error || audioError}
-                    </span>
-                </div>
-            )}
-        </form>
+                {error && (
+                    <div className="absolute top-full left-0 right-0 mt-3 flex justify-center">
+                        <span className="bg-destructive/10 border border-destructive/20 text-destructive text-xs px-3 py-1 rounded-full backdrop-blur-sm">
+                            {error}
+                        </span>
+                    </div>
+                )}
+            </form>
+        </div>
     );
 
     return (
@@ -531,8 +776,10 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
             </div>
 
             {/* Center: Input */}
-            <div className="flex-1 min-w-0 flex justify-center w-full">
-                {isCollapsed ? renderCollapsed() : renderExpanded()}
+            <div className="flex-1 min-w-0">
+                {isCollapsed
+                    ? renderCollapsed()
+                    : (isNotebookMode ? renderNotebookExpanded() : renderConversationExpanded())}
             </div>
 
             {/* Right Slot: Actions */}

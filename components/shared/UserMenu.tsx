@@ -4,9 +4,10 @@ import { useTheme } from '@/components/theme-provider';
 
 export interface UserMenuProps {
     onOpenSettings: () => void;
+    onOpenKnowledgeStore: () => void;
 }
 
-export const UserMenu: React.FC<UserMenuProps> = ({ onOpenSettings }) => {
+export const UserMenu: React.FC<UserMenuProps> = ({ onOpenSettings, onOpenKnowledgeStore }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -51,11 +52,24 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onOpenSettings }) => {
                             <button
                                 onClick={() => {
                                     setIsOpen(false);
+                                    onOpenKnowledgeStore();
+                                }}
+                                className="w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors"
+                            >
+                                Knowledge Store
+                            </button>
+
+                            <div className="h-px bg-border my-1" />
+
+                            <button
+                                onClick={() => {
+                                    setIsOpen(false);
                                     // Placeholder for future login
                                 }}
                                 className="w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors opacity-50 cursor-not-allowed"
                             >
-                                Sign In / Profile (Coming Soon)
+                                <div className="text-sm">Sign In / Profile</div>
+                                <div className="text-xs text-muted-foreground">Coming soon</div>
                             </button>
 
                             <div className="h-px bg-border my-1" />

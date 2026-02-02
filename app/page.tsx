@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import PartyAPanel from '@/components/party-a/PartyAPanel';
 import PartyBPanel from '@/components/party-b/PartyBPanel';
 import { AppSettings } from '@/components/shared/AppSettings';
@@ -16,7 +16,10 @@ import { UserMenu } from '@/components/shared/UserMenu';
 import { ConfigurationModal } from '@/components/offline/ConfigurationModal';
 import { ModelSelector } from '@/components/offline/ModelSelector';
 import { ConversationHistoryModal } from '@/components/shared/ConversationHistoryModal';
-import { History } from 'lucide-react';
+import { NotebookBuilderModal } from '@/components/shared/NotebookBuilderModal';
+import { loadNotebooks, NotebookDoc } from '@/lib/utils/notebook-storage';
+import { getApiUrl } from '@/lib/config/api';
+import { getLLMHeaders } from '@/lib/config/llm-config';
 
 // Types
 interface HistoryItem {
@@ -41,6 +44,12 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [historyState, setHistoryState] = useState<HistoryItem[]>([]); // UI State for History
+  const [conversationMode, setConversationMode] = useState<'conversation' | 'notebook'>('conversation');
+  const [notebooks, setNotebooks] = useState<NotebookDoc[]>([]);
+  const [selectedNotebookId, setSelectedNotebookId] = useState('');
+  const [activeNotebook, setActiveNotebook] = useState<NotebookDoc | null>(null);
+  const [isNotebookBuilderOpen, setIsNotebookBuilderOpen] = useState(false);
+  const activeNotebookRef = useRef<NotebookDoc | null>(null);
 
   useEffect(() => {
     const markInteraction = () => {
@@ -58,6 +67,28 @@ export default function Home() {
       window.removeEventListener('touchstart', markInteraction);
     };
   }, []);
+
+  const refreshNotebooks = useCallback(() => {
+    setNotebooks(loadNotebooks());
+  }, []);
+
+  useEffect(() => {
+    refreshNotebooks();
+  }, [refreshNotebooks]);
+
+  useEffect(() => {
+    activeNotebookRef.current = activeNotebook;
+  }, [activeNotebook]);
+
+  useEffect(() => {
+    if (selectedNotebookId && !notebooks.some((notebook) => notebook.id === selectedNotebookId)) {
+      setSelectedNotebookId('');
+      return;
+    }
+    if (!selectedNotebookId && notebooks.length > 0) {
+      setSelectedNotebookId(notebooks[0].id);
+    }
+  }, [notebooks, selectedNotebookId]);
 
   // ============================================================================
   // State & Logic Wiring (Hooks)
@@ -117,7 +148,13 @@ export default function Home() {
         partyB.actions.generateResponse(
           text,
           conversationHistoryRef.current, // Shared history
-          partyA.state.context // Party A context
+          partyA.state.context, // Party A context
+          activeNotebookRef.current
+            ? {
+                title: activeNotebookRef.current.title,
+                content: activeNotebookRef.current.content
+              }
+            : undefined
         );
       }
     }
@@ -188,6 +225,12 @@ export default function Home() {
       try {
         // Construct prompt similar to useAutoPlay logic
         const currentHistory = conversationHistoryRef.current;
+        const notebookPayload = activeNotebookRef.current
+          ? {
+              title: activeNotebookRef.current.title,
+              content: activeNotebookRef.current.content
+            }
+          : undefined;
         const response = await chatService.generateNextMessage({
           party_a_context: partyA.state.context,
           party_b_context: partyB.state.context, // Party B context is what Party A is "reacting" to in a way? No, Party A just talks.
@@ -199,9 +242,10 @@ export default function Home() {
           // We need to pass the history.
           party_a_lang: partyA.state.languages[0] || 'en',
           history: currentHistory.map(h => ({
-            role: h.role === 'party_a' ? 'user' : 'model',
+            role: h.role,
             content: h.content
-          }))
+          })),
+          notebook: notebookPayload
         });
         return response.message;
       } catch (e) {
@@ -373,7 +417,7 @@ export default function Home() {
   // Helpers
   // ============================================================================
 
-  const handleContextSet = (data: any) => {
+  const handleContextSet = (data: any, source: 'conversation' | 'notebook' = 'conversation') => {
     // 0. Reset State (Clean Slate)
     simulationManager.actions.stop();
     // Clear history ref
@@ -381,6 +425,10 @@ export default function Home() {
     // Clear history ref
     conversationHistoryRef.current = [];
     setHistoryState([]);
+
+    if (source === 'conversation') {
+      setActiveNotebook(null);
+    }
 
     partyA.actions.stopAllAudio();
     partyB.actions.stopAllAudio();
@@ -404,6 +452,60 @@ export default function Home() {
     }
   };
 
+  const handleManualContextSet = (data: any) => {
+    handleContextSet(data, 'conversation');
+  };
+
+  const getNotebookContextText = (doc: NotebookDoc) => {
+    const title = doc.title?.trim() || 'Notebook';
+    const content = (doc.content || '').trim();
+    const snippet = content.length > 2000 ? `${content.slice(0, 2000)}...` : content;
+    return `Notebook title: ${title} \n Notebook content: \n ${snippet}`;
+  };
+
+  const buildNotebookContexts = async (doc: NotebookDoc) => {
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        ...getLLMHeaders()
+      };
+      const response = await fetch(getApiUrl('/api/ai/context'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ text: getNotebookContextText(doc) })
+      });
+      if (!response.ok) throw new Error('Failed to build notebook context');
+      return await response.json();
+    } catch (error) {
+      const title = doc.title?.trim() || 'Notebook';
+      return {
+        party_a: {
+          context: `Curious host exploring "${title}"`,
+          languages: ['en']
+        },
+        party_b: {
+          context: `Expert guide explaining "${title}" clearly`,
+          languages: ['en']
+        }
+      };
+    }
+  };
+
+  const handleNotebookSend = async (text: string, doc: NotebookDoc) => {
+    if (simulationManager.state.isRunning) simulationManager.actions.stop();
+    const shouldReset = activeNotebookRef.current?.id !== doc.id;
+    setActiveNotebook(doc);
+    activeNotebookRef.current = doc;
+    if (shouldReset) {
+      const contexts = await buildNotebookContexts(doc);
+      handleContextSet(contexts, 'notebook');
+    }
+    await partyA.actions.submitText(text);
+  };
+
+  const selectedNotebook = notebooks.find((notebook) => notebook.id === selectedNotebookId) || null;
+
   // ============================================================================
   // Render
   // ============================================================================
@@ -414,7 +516,7 @@ export default function Home() {
       {/* Unified Header & Context Input */}
       <div className="sticky top-0 z-50 pt-4 pb-4 px-3 md:px-8 bg-background/95 backdrop-blur-xl border-b border-border">
         <ConvoContextInput
-          onContextSet={handleContextSet}
+          onContextSet={handleManualContextSet}
           className="shadow-2xl shadow-primary/10"
           isAutoPlaying={simulationManager.state.isRunning}
           isAutoPlayPaused={simulationManager.state.isPaused}
@@ -423,6 +525,13 @@ export default function Home() {
           }}
           autoplayCount={simulationManager.state.cycleCount}
           maxAutoplayCount={10}
+          mode={conversationMode}
+          onModeChange={setConversationMode}
+          notebooks={notebooks}
+          selectedNotebookId={selectedNotebookId}
+          onNotebookSelect={setSelectedNotebookId}
+          onNotebookSend={handleNotebookSend}
+          onOpenNotebookBuilder={() => setIsNotebookBuilderOpen(true)}
 
           // Left: Brand
           // Left: Brand
@@ -467,7 +576,10 @@ export default function Home() {
               />
 
               {/* User Menu (Future Login) */}
-              <UserMenu onOpenSettings={() => { }} />
+              <UserMenu
+                onOpenSettings={() => { }}
+                onOpenKnowledgeStore={() => setIsHistoryOpen(true)}
+              />
             </div>
           }
         />
@@ -576,6 +688,15 @@ export default function Home() {
         history={historyState}
         partyAContext={partyA.state.context}
         partyBContext={partyB.state.context}
+      />
+      <NotebookBuilderModal
+        isOpen={isNotebookBuilderOpen}
+        onClose={() => setIsNotebookBuilderOpen(false)}
+        initialNotebook={selectedNotebook}
+        onSaved={(doc) => {
+          refreshNotebooks();
+          setSelectedNotebookId(doc.id);
+        }}
       />
     </main>
   );

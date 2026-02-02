@@ -117,7 +117,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onOpenSettings }) 
     const isKeyMissing = missingKeys.includes(selectedProvider);
     const isTtsBuiltIn = audioState.ttsMode === 'browser';
     const isSttBuiltIn = audioState.sttMode === 'browser';
-    const builtInTooltip = 'Configured to Built-In. Update App Settings to AI mode.';
+    const builtInTooltip = '!Configured to Built-In, please update App Settings to AI mode.';
 
     return (
         <div className="flex items-center gap-2" ref={containerRef}>

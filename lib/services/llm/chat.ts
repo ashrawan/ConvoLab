@@ -14,12 +14,18 @@ export interface LLMResponseOptions {
     return_lang: string;
     stream?: boolean;
     history?: Array<{ role: string; content: string }>;
+    notebook?: NotebookContext;
 }
 
 export interface NotebookRequest {
     history: Array<{ role: string; content: string }>;
     party_a_context?: string;
     party_b_context?: string;
+}
+
+export interface NotebookContext {
+    title?: string;
+    content?: string;
 }
 
 export const chatService = {
@@ -39,6 +45,7 @@ export const chatService = {
         party_b_context: string;
         party_a_lang?: string;
         history: Array<{ role: string; content: string }>;
+        notebook?: NotebookContext;
     }): Promise<{ message: string }> {
         const headers = getLLMHeaders();
         return apiClient.post('/api/ai/autoplay/generate', data, { headers });

@@ -107,7 +107,7 @@ export default function ContextInput({
                     <button
                         onClick={onHistoryClick}
                         className="p-1 rounded hover:bg-violet-500/10 text-violet-700 dark:text-violet-400 transition-colors mr-1"
-                        title="History"
+                        title="Knowledge Store"
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -120,9 +120,8 @@ export default function ContextInput({
                             strokeLinecap="round"
                             strokeLinejoin="round"
                         >
-                            <path d="M3 3v5h5" />
-                            <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-                            <path d="M12 7v5l4 2" />
+                            <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h10A2.5 2.5 0 0 1 19 5.5v13A2.5 2.5 0 0 1 16.5 21h-10A2.5 2.5 0 0 1 4 18.5v-13Z" />
+                            <path d="M8 7h7M8 11h7M8 15h7" />
                         </svg>
                     </button>
                 )}

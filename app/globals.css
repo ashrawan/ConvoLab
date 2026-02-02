@@ -126,6 +126,16 @@ body {
   border-radius: 10px;
 }
 
+/* Hide scrollbars while keeping scroll behavior */
+.scrollbar-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.scrollbar-hidden {
+  scrollbar-width: none;
+}
+
 /* Smooth transitions */
 * {
   transition-property: background-color, border-color, color, fill, stroke, opacity, transform;
