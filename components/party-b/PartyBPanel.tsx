@@ -209,7 +209,7 @@ export default function PartyBPanel({
                         )}
 
                         {/* Response Text */}
-                        <div className={`text-lg leading-relaxed transition-colors duration-300 text-foreground ${customStatus ? 'opacity-80' : ''}`}>
+                        <div className={`text-base md:text-lg leading-relaxed break-words transition-colors duration-300 text-foreground ${customStatus ? 'opacity-80' : ''}`}>
                             {error && !isGenerating ? (
                                 <div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
                                     {error}
@@ -217,7 +217,7 @@ export default function PartyBPanel({
                             ) : currentlyPlayingKey === 'response' && highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
                                 renderHighlightedText(response, highlightedWordIndex)
                             ) : response ? (
-                                <div className="prose prose-invert max-w-none space-y-3">
+                                <div className="prose max-w-none dark:prose-invert space-y-3 break-words">
                                     <ReactMarkdown
                                         remarkPlugins={[remarkGfm]}
                                         components={{

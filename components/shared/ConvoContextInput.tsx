@@ -522,8 +522,8 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     };
 
     const renderConversationExpanded = () => (
-        <div className="relative w-full max-w-3xl mx-auto flex items-center gap-3">
-            <div className="shrink-0">
+        <div className="relative w-full max-w-3xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <div className="shrink-0 flex justify-start">
                 {renderModeTabs()}
             </div>
             <form
@@ -679,8 +679,8 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     );
 
     const renderNotebookExpanded = () => (
-        <div className="relative w-full max-w-3xl mx-auto flex items-center gap-3">
-            <div className="shrink-0">
+        <div className="relative w-full max-w-3xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+            <div className="shrink-0 flex justify-start">
                 {renderModeTabs()}
             </div>
             <form
@@ -769,21 +769,21 @@ export const ConvoContextInput: React.FC<ContextInputProps> = ({
     );
 
     return (
-        <div className={`w-full flex items-center justify-between gap-2 md:gap-8 ${className || ''}`}>
+        <div className={`w-full grid grid-cols-[1fr_auto] lg:grid-cols-[auto_1fr_auto] items-center gap-2 md:gap-4 lg:gap-6 ${className || ''}`}>
             {/* Left Slot: Brand */}
-            <div className="shrink-0">
+            <div className="shrink-0 order-1 lg:order-none">
                 {brandContent}
             </div>
 
             {/* Center: Input */}
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 order-3 lg:order-none col-span-2 lg:col-span-1">
                 {isCollapsed
                     ? renderCollapsed()
                     : (isNotebookMode ? renderNotebookExpanded() : renderConversationExpanded())}
             </div>
 
             {/* Right Slot: Actions */}
-            <div className="shrink-0">
+            <div className="shrink-0 order-2 lg:order-none justify-self-end">
                 {rightContent}
             </div>
         </div>

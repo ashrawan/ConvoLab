@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Github } from 'lucide-react';
 import PartyAPanel from '@/components/party-a/PartyAPanel';
 import PartyBPanel from '@/components/party-b/PartyBPanel';
 import { AppSettings } from '@/components/shared/AppSettings';
@@ -33,6 +34,7 @@ interface HistoryItem {
 // ============================================================================
 
 export default function Home() {
+  const GITHUB_REPO_URL = 'https://github.com/ashrawan/ConvoLab';
   // ============================================================================
   // Common Logic (Autoplay Policy)
   // ============================================================================
@@ -555,13 +557,9 @@ export default function Home() {
 
           // Right: Settings
           rightContent={
-            <div className="flex items-center gap-4">
-
+            <div className="flex flex-wrap items-center justify-end gap-2 md:gap-4">
               {/* Separate Model Selector */}
               <ModelSelector onOpenSettings={() => setIsSettingsOpen(true)} />
-
-
-
               <AppSettings
                 pauseMicOnAudio={pauseMicOnAudio}
                 onPauseMicChange={setPauseMicOnAudio}
@@ -574,6 +572,15 @@ export default function Home() {
                 showTypingEffect={showTypingEffect}
                 onShowTypingEffectChange={setShowTypingEffect}
               />
+              <a
+                href={GITHUB_REPO_URL}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open GitHub repository"
+                className="inline-flex items-center justify-center rounded-full border border-border bg-background/60 p-2 text-muted-foreground transition hover:text-foreground hover:bg-muted"
+              >
+                <Github className="h-4 w-4" />
+              </a>
 
               {/* User Menu (Future Login) */}
               <UserMenu

@@ -130,7 +130,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onOpenSettings }) 
                         : 'bg-muted/40 hover:bg-muted border-border text-foreground'
                         }`}
                 >
-                    <span className="opacity-70">Provider:</span>
+                    <span className="opacity-70 hidden sm:inline">Provider:</span>
                     <span className="font-semibold capitalize">{LLM_PROVIDERS.find(p => p.id === selectedProvider)?.name}</span>
                     <span className="opacity-50 text-[10px] max-w-[80px] truncate hidden sm:inline-block">({providerModelName})</span>
 
