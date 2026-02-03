@@ -141,6 +141,14 @@ export default function PartyBPanel({
     // Internal state removed in favor of props control
     const headingSluggerRef = useRef(createSlugger());
     headingSluggerRef.current.reset();
+    const [showErrorToast, setShowErrorToast] = useState(false);
+
+    useEffect(() => {
+        if (!error) return;
+        setShowErrorToast(true);
+        const timer = setTimeout(() => setShowErrorToast(false), 5000);
+        return () => clearTimeout(timer);
+    }, [error]);
 
     const handleResize = useCallback((delta: number) => {
         setTopSectionHeight(prev => {
@@ -167,7 +175,21 @@ export default function PartyBPanel({
     }, []);
 
     return (
-        <div ref={containerRef} className="w-1/2 flex flex-col bg-background/50">
+        <div ref={containerRef} className="w-1/2 flex flex-col bg-background/50 relative">
+            {showErrorToast && error && (
+                <div className="absolute top-3 right-3 z-50 max-w-[70%] rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 shadow-lg dark:text-red-400">
+                    <div className="flex items-start gap-2">
+                        <span className="flex-1">{error}</span>
+                        <button
+                            onClick={() => setShowErrorToast(false)}
+                            className="text-red-500/80 hover:text-red-600"
+                            aria-label="Dismiss error"
+                        >
+                            ×
+                        </button>
+                    </div>
+                </div>
+            )}
             {/* Context Input */}
             <ContextInput
                 party="B"
@@ -210,11 +232,7 @@ export default function PartyBPanel({
 
                         {/* Response Text */}
                         <div className={`text-base md:text-lg leading-relaxed break-words transition-colors duration-300 text-foreground ${customStatus ? 'opacity-80' : ''}`}>
-                            {error && !isGenerating ? (
-                                <div className="text-sm text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 rounded-md px-3 py-2">
-                                    {error}
-                                </div>
-                            ) : currentlyPlayingKey === 'response' && highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
+                            {currentlyPlayingKey === 'response' && highlightedWordIndex !== undefined && highlightedWordIndex >= 0 ? (
                                 renderHighlightedText(response, highlightedWordIndex)
                             ) : response ? (
                                 <div className="prose max-w-none dark:prose-invert space-y-3 break-words">

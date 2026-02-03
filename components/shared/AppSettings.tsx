@@ -72,8 +72,12 @@ export function AppSettings({
         setIsOfflineMode(offline);
         localStorage.setItem('app_mode_offline', String(offline));
 
-        // If switching to online, trigger health check immediately
-        if (!offline) {
+        // When switching to Offline, force built-in audio providers
+        if (offline) {
+            handleTTSProviderChange('browser');
+            handleSTTProviderChange('browser');
+        } else {
+            // If switching to online, trigger health check immediately
             checkApiHealth().then(setHealth);
         }
     };
@@ -148,6 +152,17 @@ export function AppSettings({
         const interval = setInterval(checkAudioKeys, 2000);
         return () => clearInterval(interval);
     }, [sttProvider, ttsProvider, isOfflineMode]);
+
+    // If offline mode is enabled, keep audio providers on built-in
+    useEffect(() => {
+        if (!isOfflineMode) return;
+        if (ttsProvider === 'api') {
+            handleTTSProviderChange('browser');
+        }
+        if (sttProvider === 'api') {
+            handleSTTProviderChange('browser');
+        }
+    }, [isOfflineMode, ttsProvider, sttProvider]);
 
     const handleTTSProviderChange = (newProvider: TTSProviderType) => {
         setTTSProvider(newProvider);

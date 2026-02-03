@@ -58,11 +58,41 @@ export function usePartyB(
     const playbackModeRef = useRef(playbackMode);
     const readingSpeedRef = useRef(readingSpeed);
     const isSimulationControlledRef = useRef(isSimulationControlled);
+    const lastTranslationKeyRef = useRef<string>('');
+    const translationRequestIdRef = useRef(0);
 
     useEffect(() => { isTranslationsCollapsedRef.current = isTranslationsCollapsed; }, [isTranslationsCollapsed]);
     useEffect(() => { playbackModeRef.current = playbackMode; }, [playbackMode]);
     useEffect(() => { readingSpeedRef.current = readingSpeed; }, [readingSpeed]);
     useEffect(() => { isSimulationControlledRef.current = isSimulationControlled; }, [isSimulationControlled]);
+
+    const translateOutput = useCallback(async (text: string, langs: string[]) => {
+        if (!text || langs.length <= 1) return;
+        if (isTranslationsCollapsedRef.current) return;
+
+        const translationKey = `${langs.join('|')}::${text}`;
+        if (lastTranslationKeyRef.current === translationKey) return;
+
+        const requestId = ++translationRequestIdRef.current;
+        lastTranslationKeyRef.current = translationKey;
+
+        setIsOutputTranslating(true);
+        try {
+            const src = langs[0];
+            const targets = langs.slice(1);
+            const results = await translationService.translateMultiple(text, src, targets);
+
+            // Ignore stale requests
+            if (translationRequestIdRef.current !== requestId) return;
+            setTranslations(results);
+        } catch (e) {
+            console.error("Output translation failed", e);
+        } finally {
+            if (translationRequestIdRef.current === requestId) {
+                setIsOutputTranslating(false);
+            }
+        }
+    }, []);
 
     // Load Languages from Local Storage
     useEffect(() => {
@@ -135,6 +165,7 @@ export function usePartyB(
             setResponse('');
             setPredictions([]);
             setTranslations({});
+            lastTranslationKeyRef.current = '';
             return;
         }
 
@@ -142,6 +173,8 @@ export function usePartyB(
         setResponse(''); // Clear previous
         setTranslations({}); // Clear previous translations
         setResponseError(null);
+        lastTranslationKeyRef.current = '';
+        translationRequestIdRef.current++;
         lastUserInputRef.current = userInput;
 
         let fullResponse = '';
@@ -201,46 +234,19 @@ export function usePartyB(
             setIsGenerating(false);
 
             // Trigger translation immediately after response is complete ONLY if enabled
-            if (!didError && fullResponse && languages.length > 1 && !isTranslationsCollapsedRef.current) {
-                setIsOutputTranslating(true);
-                try {
-                    const src = languages[0];
-                    const targets = languages.slice(1);
-                    const results = await translationService.translateMultiple(fullResponse, src, targets);
-                    setTranslations(results);
-                } catch (e) {
-                    console.error("Output translation failed", e);
-                } finally {
-                    setIsOutputTranslating(false);
-                }
+            if (!didError && fullResponse) {
+                translateOutput(fullResponse, languages);
             }
         }
-    }, [context, sourceLang, languages]);
+    }, [context, sourceLang, languages, translateOutput]);
 
     // Effect to handle translation when toggling OPEN
     useEffect(() => {
-        const translateEffect = async () => {
-            // If we open text, have response, needed languages, but no translations yet -> fetch
-            if (!isTranslationsCollapsed && response && !isGenerating && languages.length > 1) {
-                if (Object.keys(translations).length === 0) {
-                    setIsOutputTranslating(true);
-                    try {
-                        const src = languages[0];
-                        const targets = languages.slice(1);
-                        const results = await translationService.translateMultiple(response, src, targets);
-                        setTranslations(results);
-                    } catch (e) {
-                        console.error("Delayed output translation failed", e);
-                    } finally {
-                        setIsOutputTranslating(false);
-                    }
-                }
-            }
-        };
-
-        translateEffect();
-
-    }, [isTranslationsCollapsed, response, isGenerating, languages, translations]);
+        // If we open text, have response, needed languages -> fetch once per response/lang combo
+        if (!isTranslationsCollapsed && response && !isGenerating && languages.length > 1) {
+            translateOutput(response, languages);
+        }
+    }, [isTranslationsCollapsed, response, isGenerating, languages, translateOutput]);
 
     // Unmount cleanup
     useEffect(() => {

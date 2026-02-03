@@ -50,6 +50,22 @@ export class BrowserTTSProvider implements TTSProvider {
         }
     }
 
+    /**
+     * Warmup speech synthesis voices (best-effort)
+     */
+    warmup(): void {
+        if (!this.isAvailable()) return;
+        try {
+            // Trigger voice list load for some browsers
+            window.speechSynthesis.getVoices();
+            if (window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+            }
+        } catch (e) {
+            console.warn('⚠️ Browser TTS warmup failed', e);
+        }
+    }
+
     async speak(text: string, lang: string, options: TTSOptions = {}): Promise<void> {
         if (!text || !this.isAvailable()) {
             console.warn('⚠️ Browser TTS not available or no text provided');
@@ -63,12 +79,12 @@ export class BrowserTTSProvider implements TTSProvider {
             activeUtterance = null;
         }
 
-        // CRITICAL: Cancel any ongoing speech/queue to prevent getting stuck behind a ghost utterance.
-        // This effectively interrupts previous speech, which is desired for responsiveness.
-        window.speechSynthesis.cancel();
-
-        // We do NOT call cancel() here to allow queueing. 
-        // Readers can call cancel() explicitly if they want to interrupt.
+        const isSpeakingOrPending = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+        if (isSpeakingOrPending) {
+            // Cancel any ongoing speech/queue to prevent getting stuck behind a ghost utterance.
+            // Some browsers need a tick after cancel() before speak() will work reliably.
+            window.speechSynthesis.cancel();
+        }
 
         // Create utterance
         const utterance = new SpeechSynthesisUtterance(text);
@@ -79,23 +95,8 @@ export class BrowserTTSProvider implements TTSProvider {
         utterance.pitch = options.pitch || 1.0;
         utterance.volume = options.volume || 1.0;
 
-        // Ensure voices are loaded
-        let voices = window.speechSynthesis.getVoices();
-        if (voices.length === 0) {
-            await new Promise<void>(resolve => {
-                const onVoicesChanged = () => {
-                    voices = window.speechSynthesis.getVoices();
-                    window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-                    resolve();
-                };
-                window.speechSynthesis.addEventListener('voiceschanged', onVoicesChanged);
-                // Fallback timeout in case event never fires (some browsers)
-                setTimeout(() => {
-                    window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
-                    resolve();
-                }, 1000);
-            });
-        }
+        // Load voices without blocking user gesture (best effort)
+        const voices = window.speechSynthesis.getVoices();
 
         // Try to find matching voice
         if (voices.length > 0) {
@@ -150,11 +151,32 @@ export class BrowserTTSProvider implements TTSProvider {
                 }
             }, 180000); // 3 minutes max safety valve
 
-            // Speak
-            if (window.speechSynthesis.paused) {
-                window.speechSynthesis.resume();
+            // Speak (defer only if we had to cancel an active queue)
+            const speakNow = () => {
+                // If a newer request replaced this one, bail out
+                if (activeUtterance !== utterance) {
+                    cleanup();
+                    return;
+                }
+
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
+                }
+
+                try {
+                    window.speechSynthesis.speak(utterance);
+                } catch (error) {
+                    console.error('🔴 Speech error:', error);
+                    if (options.onEnd) options.onEnd();
+                    cleanup();
+                }
+            };
+
+            if (isSpeakingOrPending) {
+                setTimeout(speakNow, 0);
+            } else {
+                speakNow();
             }
-            window.speechSynthesis.speak(utterance);
         });
     }
 }

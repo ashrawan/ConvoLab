@@ -30,7 +30,14 @@ export async function POST(req: NextRequest) {
                 });
 
                 if (stream) {
-                    return new NextResponse(pyRes.body);
+                    if (!pyRes.ok) {
+                        const raw = await pyRes.text();
+                        return NextResponse.json(
+                            { error: 'Backend Error', details: raw || pyRes.statusText },
+                            { status: pyRes.status }
+                        );
+                    }
+                    return new NextResponse(pyRes.body, { status: pyRes.status });
                 } else {
                     const data = await pyRes.json();
                     return NextResponse.json(data, { status: pyRes.status });
