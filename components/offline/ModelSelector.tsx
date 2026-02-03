@@ -9,7 +9,7 @@ export interface ModelSelectorProps {
 export const ModelSelector: React.FC<ModelSelectorProps> = ({ onOpenSettings }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedProvider, setSelectedProvider] = useState<LLMProvider>('openai');
-    const [providerModelName, setProviderModelName] = useState('gpt-4o');
+    const [providerModelName, setProviderModelName] = useState(DEFAULT_MODELS.openai);
     const [missingKeys, setMissingKeys] = useState<LLMProvider[]>([]);
     const [isLocalMode, setIsLocalMode] = useState(true);
     const [activeTab, setActiveTab] = useState<'llm' | 'audio'>('llm');
@@ -36,7 +36,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onOpenSettings }) 
             setIsLocalMode(isOffline);
 
             // Get the specific model name configured for this provider
-            const modelName = getStoredProviderModel(currentProvider);
+            const storedModel = localStorage.getItem(`model_name_${currentProvider}`);
+            const modelName = storedModel && storedModel.toLowerCase() !== 'default'
+                ? storedModel
+                : (DEFAULT_MODELS[currentProvider] || DEFAULT_MODELS.openai);
             setProviderModelName(modelName);
 
             // Check for keys ONLY if in Local Mode
@@ -106,7 +109,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onOpenSettings }) 
         // Also update the generic 'user_selected_model' to the specific model for this provider
         let specificModel = localStorage.getItem(`model_name_${providerId}`);
         if (!specificModel || specificModel.toLowerCase() === 'default') {
-            specificModel = DEFAULT_MODELS[providerId] || 'gpt-4o';
+            specificModel = DEFAULT_MODELS[providerId] || DEFAULT_MODELS.openai;
         }
         localStorage.setItem('user_selected_model', specificModel);
         setProviderModelName(specificModel);
@@ -199,7 +202,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({ onOpenSettings }) 
                                                         {isMissing && <span className="text-[9px] text-amber-500 bg-amber-500/10 px-1 rounded ml-1">Key Missing</span>}
                                                     </span>
                                                     <span className="text-[10px] text-muted-foreground opacity-70 truncate max-w-[180px]">
-                                                        {configuredModel || (p.id === 'openai' ? 'gpt-4o' : 'Default Model')}
+                                                        {configuredModel || DEFAULT_MODELS[p.id] || 'Default Model'}
                                                     </span>
                                                 </div>
                                                 {selectedProvider === p.id && (

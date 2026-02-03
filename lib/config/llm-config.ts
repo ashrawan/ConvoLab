@@ -16,10 +16,10 @@ export const LLM_PROVIDERS: { id: LLMProvider; name: string }[] = [
 
 // Default models for each provider
 export const DEFAULT_MODELS: Record<LLMProvider, string> = {
-    openai: 'gpt-4o',
-    anthropic: 'claude-3-5-sonnet-latest',
-    google: 'gemini-2.5-flash',
-    openrouter: 'openai/gpt-4o',
+    openai: 'gpt-5.2-2025-12-11',
+    anthropic: 'claude-haiku-4-5-20251001',
+    google: 'gemini-3-flash-preview',
+    openrouter: 'openai/gpt-oss-120b',
     groq: 'llama-3.3-70b-versatile'
 };
 
@@ -53,7 +53,7 @@ export function getStoredProviderModel(provider: LLMProvider): string {
         localStorage.getItem(`model_name_${provider}`) ||
         localStorage.getItem('user_selected_model') ||
         DEFAULT_MODELS[provider] ||
-        'gpt-4o'
+        DEFAULT_MODELS.openai
     );
 }
 

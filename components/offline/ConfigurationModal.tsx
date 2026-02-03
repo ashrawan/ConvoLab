@@ -338,7 +338,7 @@ export const ConfigurationModal: React.FC<ConfigurationModalProps> = ({ isOpen, 
                                                         type="text"
                                                         value={models[selectedProvider]}
                                                         onChange={(e) => setModels({ ...models, [selectedProvider]: e.target.value })}
-                                                        placeholder="e.g. gpt-4o, claude-3-5-sonnet... "
+                                                        placeholder="e.g. gpt-5.2-2025-12-11, claude-haiku-4-5-20251001... "
                                                         className="w-full px-4 py-3 rounded-lg border border-input bg-muted/20 focus:bg-background focus:ring-2 focus:ring-primary/20 transition-all outline-none font-mono text-sm"
                                                     />
                                                     <p className="text-xs text-muted-foreground">
